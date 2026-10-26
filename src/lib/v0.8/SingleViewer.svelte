@@ -407,7 +407,7 @@
         {#if syncedLayer?.spec.type === "hillshade"}
           <label>
             <input type="checkbox" bind:checked={syncedLayer.background.visibility}/>
-            Gray Fill
+            Hillshade Background
           </label>
         {/if}
         <div style:display="flex" style:gap="var(--gap)" >
