@@ -16,24 +16,31 @@
 </script>
 
 <div style:display=flex style:align-items=center>
-  <div
-    style={`width: ${scaleBarLengthPixels.toFixed(0)}px`}
-    style:border-top={`2px solid #fff`}
-    style:border-bottom={`2px solid #000`}>
-  </div>
-  <div
-    style:text-align="end">
+  {#if !isNaN(scaleBarLengthPixels)}
     <div
-      style:color=white
-      style:font-family=system-ui
-      style:font-weight=600
+      style={`width: ${scaleBarLengthPixels.toFixed(0)}px`}
+      style:border-top={`2px solid #fff`}
+      style:border-bottom={`2px solid #000`}>
+    </div>
+    <div
+      style:text-align="end">
+      <div
+        style:color=white
+        style:background-color=black
+        style:margin-left=4px
+        style:padding="0 2px"
+        style:line-height=1rem
+      >
+        {scaleBarDisplay.displayLength.value} {scaleBarDisplay.displayLength.unit.symbol}m
+      </div>
+    </div>
+  {:else}
+    <div
+      style:color=gray
       style:background-color=black
-      style="text-shadow: 1px 1px 1px rgb(0 0 0 / 100%);"
-      style:margin-left=4px
-      style:padding="0 2px"
       style:line-height=1rem
     >
-      {scaleBarDisplay.displayLength.value} {scaleBarDisplay.displayLength.unit.symbol}m
+      Scale could not resolve (NaN/undefined)
     </div>
-  </div>
+  {/if}
 </div>

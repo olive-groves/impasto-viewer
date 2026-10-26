@@ -20,6 +20,7 @@
   import { mergeDeep } from '$lib/utils';
   import { ColorRelief } from '$lib/ColorRelief.svelte';
   import Colorbar from '$lib/Colorbar.svelte';
+  import ScaleBar from '$lib/ScaleBar.svelte';
   import DualRangeInput from '$lib/DualRangeInput.svelte';
   import { untrack } from 'svelte';
 
@@ -34,6 +35,8 @@
     pitch = $bindable(),
     roll = $bindable(),
     elevation = $bindable(),
+    maxZoom = undefined,
+    metersPerMaxZoomPixel = undefined,
     onzoomchange,
     onlngchange,
     onlatchange,
@@ -52,6 +55,8 @@
     pitch?: SingleView["camera"]["pitch"];
     roll?: SingleView["camera"]["roll"];
     elevation?: SingleView["camera"]["elevation"];
+    maxZoom?: SingleView["maxZoom"];
+    metersPerMaxZoomPixel?: SingleView["metersPerMaxZoomPixel"];
     onzoomchange?: (zoom: CameraState["zoom"]) => void;
     onlngchange?: (lng: CameraState["lng"]) => void;
     onlatchange?: (lat: CameraState["lat"]) => void;
@@ -228,9 +233,7 @@
     })
   })
 
-  let maxZoom: number | undefined;
-  let metersPerMaxZoomPixel: number | undefined = $state();
-  let metersPerPixel = $derived(2**(maxZoom - zoom) * metersPerMaxZoomPixel);
+  let metersPerPixel: number | undefined = $derived((maxZoom != null && metersPerMaxZoomPixel != null) ? 2**(maxZoom - zoom) * metersPerMaxZoomPixel : undefined);
 
   const METERS_PER_KEYENCE_HEIGHT_QUANTIZATION_STEP = 0.000000250000011874363;
 
@@ -485,9 +488,6 @@
   </div>
   {#if showColorbar}
     <div class="controls-center-left">
-      <!-- <div class="scalebar">
-        <ScaleBar {metersPerPixel} />
-      </div> -->
       <div class="colorbar">
         <Colorbar
           min={colorRelief.setBreakpoints.low * metersPerInteger}
@@ -498,6 +498,13 @@
             ${colorRelief.colormapArray.join(", ")}
           )`}
         />
+      </div>
+    </div>
+  {/if}
+  {#if metersPerInteger != null}
+    <div class="controls-bottom-right">
+      <div class="scalebar">
+        <ScaleBar {metersPerPixel} />
       </div>
     </div>
   {/if}
@@ -536,6 +543,14 @@
         display: flex;
         height: 100%;
       }
+    }
+    .controls-bottom-right {
+      z-index: 1;
+      align-self: end;
+      justify-self: end;
+
+      display: flex;
+      pointer-events: none;
     }
   }
 </style>

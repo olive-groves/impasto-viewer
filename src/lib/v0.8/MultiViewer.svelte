@@ -642,6 +642,8 @@
     align-items: end;
     gap: calc(3 * var(--gap));
     padding: var(--gap);
+    padding-right: calc(var(--gap) + 1px + 1px);
+    padding-bottom: calc(var(--gap) + 1px + 1rem + 1px);
   }
   .zoom-control {
     display: flex;

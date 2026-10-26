@@ -113,6 +113,12 @@ export class SingleView {
     roll: {type: "sync"},
     elevation: {type: "sync"},
   });
+  // Assume all layers/sources of a view have same spatial resolution and show
+  // only one scale bar per view.
+  // TODO: Is there a better way to manage and enforce this?
+  maxZoom: number | undefined = $state();
+  metersPerMaxZoomPixel: number | undefined = $state();
+  // metersPerPixel = 2**(maxZoom - zoom) * metersPerMaxZoomPixel;
 }
 export class MultiView {
   name: string | undefined = $state("Multiview Name");
