@@ -413,12 +413,13 @@
         <div style:display="flex" style:gap="var(--gap)" >
           <label>
             <input type="checkbox" checked={syncedLayer?.spec.layout?.visibility === "visible"} onchange={(e) => syncedLayer.spec.layout.visibility = e.target.checked ? "visible" : "none"} />
+            {#if sourceResolve?.source.metadata.modality === "rgb"}
+              RGB
+            {:else if sourceResolve?.source.metadata.maskType === "nan-height"}
+              NaN (Height)
+            {/if}
           </label>
-          {#if sourceResolve?.source.metadata.modality === "rgb"}
-            RGB
-          {:else if sourceResolve?.source.metadata.maskType === "nan-height"}
-            NaN (Height)
-          {:else if syncedLayer?.spec.type === "color-relief"}
+          {#if syncedLayer?.spec.type === "color-relief"}
             <details>
               <summary>Pseudocolor</summary>
               <label>
