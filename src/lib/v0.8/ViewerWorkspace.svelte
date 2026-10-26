@@ -197,8 +197,10 @@
               'interpolate',
               ['linear'],
               ['elevation'],
-              0, "#440154",
-              metadata?.maximum, "#FDE725"
+              0, "#00000000",
+              0.5, "#440154",
+              1, "#440154",
+              metadata?.maximum, "#FDE725",
             ]
           }
         const initialBackgroundSpec: Background | undefined =

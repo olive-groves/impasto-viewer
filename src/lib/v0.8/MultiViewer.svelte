@@ -18,6 +18,7 @@
   import { SourceManager, type SourceKey } from '$lib/source-manager.svelte';
   import { MapLibreSyncedLayer, type AnyLayerSpec, type OverrideMapLibreLayerKey, type SyncedMapLibreLayerKey } from '$lib/synced-layer.svelte';
   import { mergeDeep } from '$lib/utils';
+  import { ColorRelief } from '$lib/ColorRelief.svelte';
   const sourceManager = getSourceManagerContext();
   const syncedMapLibreLayers = getSyncedMapLibreLayersContext();
   const syncedMapLibreSurfaces = getSyncedMapLibreSurfacesContext();
@@ -140,115 +141,134 @@
     }
   }
 
-  function handleDropSuperOuter(e: DragEvent) {
-    async function handleFiles(files: FileList) {
-      // FIXME: Fails with TerraDraw
-      const existingNestedMultiView = new MultiView();
-      const existingViewKeys = views.order;
-      existingViewKeys.forEach((existingViewKey) => {
-        const view = views.map.get(existingViewKey);
-        if (view) {
-          // FIXME: I recursively add draw instances to solve the issue with the view.draw.instanceKey not passing to the nested view.
-          // Maybe I'm missing something...?
-          recursiveAddDrawInstance(view);
-          existingNestedMultiView.views.add(view, {key: existingViewKey});
+  // TODO: Separate handler for adding views
+  function handleAddViewsOnDrop(e: DragEvent) {
+    const dataTransfer = e.dataTransfer;
+    const files = dataTransfer?.files;
+    if (files && files.length > 0) {
+      handleAddViewsFiles(files);
+    }
+  }
+
+  async function handleAddViewsFiles(files: FileList) {
+    // WARNING: Assumes PMTiles with VG schema (rgb, height, nan) belonging to same date
+    // Get content of each source
+    // Group sources by
+
+    // Order layers by type
+    // Order views by date?
+    // FIXME: asynchronously gather sourcekeys
+
+    // Derive the layers from the files
+    let layers = (await Promise.all([...files].map(async (file) => {
+      const sourceKey = sourceManager.add(SourceManager.fileToSource(file));
+      const syncedLayers = await deriveSyncedLayersFromMapLibreSource(sourceKey);
+      return syncedLayers
+    }))).flat(Infinity)
+
+    // Set all the layers globally
+    layers.forEach(({syncedLayer, syncedLayerKey, overrideKey}) => {
+      syncedMapLibreLayers.set(syncedLayerKey, syncedLayer)  // TODO: Layers manager? .add() auto generates key
+      // const view = new SingleView();
+      // view.layers.add(syncedLayerKey, {key: overrideKey});
+      // view.drawKeys.instanceKey = syncedTerraDrawModeManager.syncedTerraDraw.addInstance().id;
+      // multiView.views.add(view);
+    })
+
+    // If RGB, create RGB-ready view
+    const rgbLayer = layers.find(({syncedLayer, syncedLayerKey, overrideKey}) => sourceManager.mapLibreSources.get(syncedLayer.spec.source)?.source.source.metadata.modality === "rgb")
+    let rgbView;
+    let syncedLayer, syncedLayerKey, overrideKey;
+    if (rgbLayer) {
+      const view = new SingleView();
+      ({syncedLayer, syncedLayerKey, overrideKey} = rgbLayer);
+
+      view.layers.add(syncedLayerKey, {key: overrideKey});
+      view.drawKeys.instanceKey = syncedTerraDrawModeManager.syncedTerraDraw.addInstance().id;
+
+      const metadata = await sourceManager.mapLibreSources.get(syncedLayer.spec.source)?.source.source.metadata;
+      const date = metadata ? new Date(metadata.instrument.dateTime) : undefined;
+      const name = date ? `RGB ${date.toLocaleString()}` : "RGB";
+      view.layout.window.title = name;
+      view.name = name;
+
+      let metersPerMaxZoomPixel;
+      const version = metadata?.metadataVersion;
+      if (version === "0.4.0") {
+        metersPerMaxZoomPixel = metadata?.spatialResolutionMeters;
+      } else if (version === "0.2.0") {
+        metersPerMaxZoomPixel = metadata?.conversionLengthMeters / metadata?.conversionLengthPixels;
+      }
+      view.maxZoom = metadata?.maxzoom;
+      view.metersPerMaxZoomPixel = metersPerMaxZoomPixel;
+
+      views.add(view);
+      rgbView = view;
+    }
+    const hillshadeLayer = layers.find(({syncedLayer, syncedLayerKey, overrideKey}) => syncedLayer.spec.type === "hillshade")
+    const colorReliefLayer = layers.find(({syncedLayer, syncedLayerKey, overrideKey}) => syncedLayer.spec.type === "color-relief")
+    let heightView;
+    if (hillshadeLayer && colorReliefLayer) {
+      const view = new SingleView();
+      ({syncedLayer, syncedLayerKey, overrideKey} = colorReliefLayer);
+      view.layers.add(syncedLayerKey, {key: overrideKey});
+      ({syncedLayer, syncedLayerKey, overrideKey} = hillshadeLayer);
+      view.layers.add(syncedLayerKey, {key: overrideKey});
+
+      const metadata = await sourceManager.mapLibreSources.get(syncedLayer.spec.source)?.source.source.metadata;
+      const date = metadata ? new Date(metadata.instrument.dateTime) : undefined;
+      const name = date ? `Height ${date.toLocaleString()}` : "Height";
+      view.layout.window.title = name;
+      view.name = name;
+
+      let metersPerMaxZoomPixel;
+      const version = metadata?.metadataVersion;
+      if (version === "0.4.0") {
+        metersPerMaxZoomPixel = metadata?.spatialResolutionMeters;
+      } else if (version === "0.2.0") {
+        metersPerMaxZoomPixel = metadata?.conversionLengthMeters / metadata?.conversionLengthPixels;
+      }
+      view.maxZoom = metadata?.maxzoom;
+      view.metersPerMaxZoomPixel = metersPerMaxZoomPixel;
+
+      view.drawKeys.instanceKey = syncedTerraDrawModeManager.syncedTerraDraw.addInstance().id;
+      views.add(view);
+      heightView = view;
+    }
+
+    const nanLayer = layers.find(({syncedLayer, syncedLayerKey, overrideKey}) => sourceManager.mapLibreSources.get(syncedLayer.spec.source)?.source?.source?.metadata?.maskType === "nan-height")
+    if (nanLayer) {
+      ({syncedLayer, syncedLayerKey, overrideKey} = nanLayer);
+
+      if (rgbView)
+        rgbView.layers.add(syncedLayerKey, {key: overrideKey});
+      if (heightView)
+        heightView.layers.add(syncedLayerKey, {key: overrideKey});
+      if (!rgbView && !heightView) {
+        const view = new SingleView();
+        view.layers.add(syncedLayerKey, {key: overrideKey});
+
+        const metadata = await sourceManager.mapLibreSources.get(syncedLayer.spec.source)?.source.source.metadata;
+        const date = metadata ? new Date(metadata.instrument.dateTime) : undefined;
+        const name = date ? `NaN-height ${date.toLocaleString()}` : "NaN-height";
+        view.layout.window.title = name;
+        view.name = name;
+
+        let metersPerMaxZoomPixel;
+        const version = metadata?.metadataVersion;
+        if (version === "0.4.0") {
+          metersPerMaxZoomPixel = metadata?.spatialResolutionMeters;
+        } else if (version === "0.2.0") {
+          metersPerMaxZoomPixel = metadata?.conversionLengthMeters / metadata?.conversionLengthPixels;
         }
-        function recursiveAddDrawInstance(view: SingleView | MultiView) {
-          if (view.type === "single") {
-            view.drawKeys.instanceKey = syncedTerraDrawModeManager.syncedTerraDraw.addInstance().id;
-          } else {
-            view.views.map.forEach((v) => recursiveAddDrawInstance(v));
-          }
-        }
-      })
-      views.clear();
-      views.add(existingNestedMultiView);
-      const newNestedMultiView = new MultiView();
-      [...files].forEach(async (file) => {
-        const sourceKey = sourceManager.add(SourceManager.fileToSource(file));
-        const layers = await deriveSyncedLayersFromMapLibreSource(sourceKey);
-        layers.forEach(([syncedLayer, syncedLayerKey, overrideKey]) => {
-          syncedMapLibreLayers.set(syncedLayerKey, syncedLayer);  // TODO: Layers manager? .add() auto generates key
-          const view = new SingleView();
-          view.layers.add(syncedLayerKey, {key: overrideKey});
-          view.drawKeys.instanceKey = syncedTerraDrawModeManager.syncedTerraDraw.addInstance().id;
-          newNestedMultiView.views.add(view);
-        })
-      })
-      views.add(newNestedMultiView);
-    }
-    const dataTransfer = e.dataTransfer;
-    const files = dataTransfer?.files;
-    if (files && files.length > 0) {
-      handleFiles(files);
-    }
-  }
+        view.maxZoom = metadata?.maxzoom;
+        view.metersPerMaxZoomPixel = metersPerMaxZoomPixel;
 
-  function handleDropOuter(e: DragEvent) {
-    async function handleFiles(files: FileList) {
-      [...files].forEach(async (file) => {
-        const sourceKey = sourceManager.add(SourceManager.fileToSource(file));
-        const layers = await deriveSyncedLayersFromMapLibreSource(sourceKey);
-        layers.forEach(([syncedLayer, syncedLayerKey, overrideKey]) => {
-          syncedMapLibreLayers.set(syncedLayerKey, syncedLayer);  // TODO: Layers manager? .add() auto generates key
-          const view = new SingleView();
-          view.layers.add(syncedLayerKey, {key: overrideKey});
-          view.drawKeys.instanceKey = syncedTerraDrawModeManager.syncedTerraDraw.addInstance().id;
-          views.add(view);
-        })
-      })
+        view.drawKeys.instanceKey = syncedTerraDrawModeManager.syncedTerraDraw.addInstance().id;
+        views.add(view);
+      }
     }
-    const dataTransfer = e.dataTransfer;
-    const files = dataTransfer?.files;
-    if (files && files.length > 0) {
-      handleFiles(files);
-    }
-  }
 
-  function handleDropSubOuter(e: DragEvent, vK: ViewKey) {
-    async function handleFiles(files: FileList, vK: ViewKey) {
-      const nestedMultiView = new MultiView();
-      const original = views.get(vK);
-      // TODO: Tranferring instanceKeys...?
-      original.draw.instanceKey = syncedTerraDrawModeManager.syncedTerraDraw.addInstance().id;
-      nestedMultiView.views.add(original);
-      [...files].forEach(async (file) => {
-        const sourceKey = sourceManager.add(SourceManager.fileToSource(file));
-        const layers = await deriveSyncedLayersFromMapLibreSource(sourceKey);
-        layers.forEach(([syncedLayer, syncedLayerKey, overrideKey]) => {
-          syncedMapLibreLayers.set(syncedLayerKey, syncedLayer);  // TODO: Layers manager? .add() auto generates key
-          const view = new SingleView();
-          view.layers.add(syncedLayerKey, {key: overrideKey});
-          view.drawKeys.instanceKey = syncedTerraDrawModeManager.syncedTerraDraw.addInstance().id;
-          nestedMultiView.views.add(view);
-        })
-      })
-      views.map.set(vK, nestedMultiView);
-    }
-    const dataTransfer = e.dataTransfer;
-    const files = dataTransfer?.files;
-    if (files && files.length > 0) {
-      handleFiles(files, vK);
-    }
-  }
-
-  function handleDropSubInner(e: DragEvent, vK: ViewKey) {
-    async function handleFiles(files: FileList, vk: ViewKey) {
-      [...files].forEach(async (file) => {
-        const sourceKey = sourceManager.add(SourceManager.fileToSource(file));
-        const layers = await deriveSyncedLayersFromMapLibreSource(sourceKey);
-        const view = views.map.get(vK);
-        layers.forEach(([syncedLayer, syncedLayerKey, overrideKey]) => {
-          syncedMapLibreLayers.set(syncedLayerKey, syncedLayer);  // TODO: Layers manager? .add() auto generates key
-          view.layers.add(syncedLayerKey, {key: overrideKey});
-        })
-      })
-    }
-    const dataTransfer = e.dataTransfer;
-    const files = dataTransfer?.files;
-    if (files && files.length > 0) {
-      handleFiles(files, vK);
-    }
   }
 
   async function deriveSyncedLayersFromMapLibreSource(mapLibreSourceKey: SourceKey) {
@@ -260,9 +280,11 @@
     }
     const metadata = mapLibreSource.source.source.format === "pmtiles" ? await mapLibreSource.source.source.metadata : undefined;
 
-    if (sourceSpec.type === "raster" || sourceSpec.type === "image") {  // If raster, add a raster layer to each group
+    // If raster, create raster layer
+    if (sourceSpec.type === "raster" || sourceSpec.type === "image") {
       const layerSpecType = "raster";
       const initialPaintSpec = {
+        "resampling": "nearest",
         "raster-opacity": 1.0,
       }
       const layerSpec: AnyLayerSpec = {  // This isn't state(); the MapLibreSyncedLayer.spec is.
@@ -274,23 +296,37 @@
       const syncedLayer = new MapLibreSyncedLayer(layerSpec)
       const overrideKey = syncedLayer.addOverride({spec: {}})
       const syncedLayerKey: SyncedMapLibreLayerKey = `synced-maplibre-layer_${crypto.randomUUID()}`;
-      return [[syncedLayer, syncedLayerKey, overrideKey]]
-    } else if (sourceSpec.type === "raster-dem") {  // If raster-dem, add a hillshade AND color-relief layer to each group
+      return [{syncedLayer, syncedLayerKey, overrideKey}]
+
+    // If raster-dem, create hillshade AND color-relief
+    } else if (sourceSpec.type === "raster-dem") {
       const layerSpecTypes = ["color-relief", "hillshade"];
+
+      // ———
+      const initColorRelief = new ColorRelief();
+      initColorRelief.setBreakpoints.max = metadata.maximum;
+      initColorRelief.setBreakpoints.high = metadata.maximum;
+      // ———
       return layerSpecTypes.map((layerSpecType) => {
         const initialPaintSpec =
           layerSpecType === "hillshade" ?
           {
-            "hillshade-illumination-direction": 315,
+            "resampling": "nearest",
+            "hillshade-illumination-direction": 270,
             "hillshade-exaggeration": 0.5,
+            "hillshade-method": 'standard',
           } :
+          // $state.snapshot(initColorRelief.paint);
           {
+            'resampling': 'nearest',
             'color-relief-color': [
               'interpolate',
               ['linear'],
               ['elevation'],
-              0, 'rgba(0, 0, 0, 1)',
-              metadata?.maximum ?? 5000, 'rgba(0, 255, 0, 1)'
+              0, "#00000000",
+              0.5, "#440154",
+              1, "#440154",
+              metadata?.maximum, "#FDE725",
             ]
           }
         const initialBackgroundSpec: Background | undefined =
@@ -298,7 +334,7 @@
           {
             color: "#7f7f7f",
             opacity: 1.0,
-            visibility: true,
+            visibility: false,
           } :
           undefined
         const layerSpec: AnyLayerSpec = {  // This isn't state() and shouldn't be; the eventual instantiated MapLibreSyncedLayer.spec is.
@@ -311,12 +347,13 @@
         const syncedLayer = new MapLibreSyncedLayer(layerSpec, initialBackgroundSpec)
         const overrideKey = syncedLayer.addOverride({spec: {}})
         const syncedLayerKey: SyncedMapLibreLayerKey = `synced-maplibre-layer_${crypto.randomUUID()}`;
-        return [syncedLayer, syncedLayerKey, overrideKey]
+        return {syncedLayer, syncedLayerKey, overrideKey}
       })
     } else {
       return []
     }
   }
+
   // let allowMultiViewNesting = $derived(views.order.length > 1);
   // let allowSubViewNesting = $derived(views.order.length > 1);
   let allowMultiViewNesting = false;
@@ -386,7 +423,7 @@
         --dragging-margin=initial
         --flex-direction=column
         ondropOuter={(e) => {
-          handleDropOuter(e);
+          handleAddViewsOnDrop(e);
           e.preventDefault();
         }}
         ondragoverOuter={(e) => {
@@ -395,7 +432,7 @@
           e.dataTransfer.dropEffect = "copy";
         }}
         ondropInner={(e) => {
-          handleDropOuter(e);
+          handleAddViewsOnDrop(e);
           e.preventDefault();
         }}
         ondragoverInner={(e) => {
@@ -527,8 +564,9 @@
           {/each}
           {#if !(layout.preview.addChild > 0)}
             {#if views.order.length < 1}
-              <div class={["views-notice", "add-drag"]}>
-                No views in this multi-view.
+              <div class={["views-notice", "add-drag"]} style:line-height=2em>
+                <p>No views in this multi-view.</p>
+                <p>Drag and drop PMTiles files or click '+ Views' to load RGB, Height, and/or NaN.</p>
               </div>
             {:else if visibleViewsOrder.length < 1}
               <div class=views-notice>

@@ -427,27 +427,31 @@
                 Show colorbar
               </label>
               <DualRangeInput
-                min={0}
+                min={1}
                 max={sourceResolve?.source.metadata.maximum}
-                low={paint["color-relief-color"].at(3)}
+                low={paint["color-relief-color"].at(7)}
                 onLowChange={(low) => {
-                  const high = untrack(() => paint["color-relief-color"][5])
+                  const high = untrack(() => paint["color-relief-color"][9])
                   paint["color-relief-color"] = [
                     'interpolate',
                     ['linear'],
                     ['elevation'],
+                    0, "#00000000",
+                    0.5, "#440154",
                     low, '#440154',
                     high, "#FDE725"
                   ];
                   colorRelief.setBreakpoints.low = low;
                 }}
-                high={paint["color-relief-color"].at(5)}
+                high={paint["color-relief-color"].at(9)}
                 onHighChange={(high) => {
-                  const low = untrack(() => paint["color-relief-color"][3])
+                  const low = untrack(() => paint["color-relief-color"][7])
                   paint["color-relief-color"] = [
                     'interpolate',
                     ['linear'],
                     ['elevation'],
+                    0, "#00000000",
+                    0.5, "#440154",
                     low, '#440154',
                     high, "#FDE725"
                   ];
@@ -466,11 +470,11 @@
               <div style="display: flex; justify-content: space-between;">
                 <div style="display: flex; justify-content: space-between; flex: 1 1 0; width: 0;">
                   <span>{(colorRelief.setBreakpoints.min * sourceResolve?.source.metadata?.metersPerInteger * 1000).toFixed(0)} mm</span>
-                  <span>{(paint["color-relief-color"][3] * sourceResolve?.source.metadata?.metersPerInteger * 1000).toFixed(2)}</span>
+                  <span>{(paint["color-relief-color"][7] * sourceResolve?.source.metadata?.metersPerInteger * 1000).toFixed(2)}</span>
                 </div>
                 <span> – </span>
                 <div style="display: flex; justify-content: space-between; flex: 1 1 0; width: 0;">
-                  <span>{(paint["color-relief-color"][5] * sourceResolve?.source.metadata?.metersPerInteger * 1000).toFixed(2)}</span>
+                  <span>{(paint["color-relief-color"][9] * sourceResolve?.source.metadata?.metersPerInteger * 1000).toFixed(2)}</span>
                   <span>{(sourceResolve?.source.metadata.maximum * sourceResolve?.source.metadata?.metersPerInteger * 1000).toFixed(0)}</span>
                 </div>
               </div>
