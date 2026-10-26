@@ -317,8 +317,10 @@
       return []
     }
   }
-  let allowMultiViewNesting = $derived(views.order.length > 1);
-  let allowSubViewNesting = $derived(views.order.length > 1);
+  // let allowMultiViewNesting = $derived(views.order.length > 1);
+  // let allowSubViewNesting = $derived(views.order.length > 1);
+  let allowMultiViewNesting = false;
+  let allowSubViewNesting = false;
   let modeArrangement: "side-by-side" | "overlay" = $derived(mode.type === "side-by-side" ? "side-by-side" : "overlay")
 
   function findMatchingLayer(views: MultiView["views"], ofSpec: {type: Array<"raster" | "hillshade" | "color-relief" | "background">}) {
@@ -366,23 +368,6 @@
 
 <DropZone
   enabled={allowMultiViewNesting}
-  ondropOuter={(e) => {
-    if (allowMultiViewNesting) {
-      e.preventDefault();
-      handleDropSuperOuter(e);
-    }
-  }}
-  ondragoverOuter={(e) => {
-    if (allowMultiViewNesting) {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "copy";
-      layout.preview.nest = e.dataTransfer?.items?.length ?? 1;
-    }
-  }}
-  draggingOuterChanged={(dragging) => {
-    layout.preview.addSibling = dragging ? 1 : 0;
-    layout.preview.nest = dragging ? 1 : 0;
-  }}
 >
   <div class="multi-viewer-size-container stack">
     <div
@@ -399,7 +384,6 @@
     >
       <DropZone
         --dragging-margin=initial
-        // preferInner={visibleViewsOrder.length !== 1}
         --flex-direction=column
         ondropOuter={(e) => {
           handleDropOuter(e);
@@ -411,21 +395,16 @@
           e.dataTransfer.dropEffect = "copy";
         }}
         ondropInner={(e) => {
-          if (visibleViewsOrder.length < 1) {
-            handleDropOuter(e);
-            e.preventDefault();
-          }
+          handleDropOuter(e);
+          e.preventDefault();
         }}
         ondragoverInner={(e) => {
-          if (visibleViewsOrder.length < 1) {
-            e.preventDefault();
-            layout.preview.addChild = e.dataTransfer?.items?.length ?? 1;
-            e.dataTransfer.dropEffect = "copy";
-          }
+          e.preventDefault();
+          layout.preview.addChild = e.dataTransfer?.items?.length ?? 1;
+          e.dataTransfer.dropEffect = "copy";
         }}
-        draggingChanged={(dragging, draggingInner) => {
-          const draggingOuter = dragging && !draggingInner;
-          layout.preview.addChild = (draggingOuter || (dragging && (visibleViewsOrder.length < 1))) ? 1 : 0;
+        draggingChanged={(dragging, _) => {
+          layout.preview.addChild = dragging ? 1 : 0;
         }}
       >
         <div
@@ -501,30 +480,6 @@
                   <DropZone
                     --dragging-margin=initial
                     enabled={allowSubViewNesting}
-                    draggingChanged={(dragging, draggingInner) => {
-                      const draggingOuter = dragging && !draggingInner;
-                      view.layout.preview.nest = draggingOuter ? 1 : 0;
-                      view.layout.preview.addSibling = draggingOuter ? 1 : 0;
-                      view.layout.preview.addChild = draggingInner ? 1 : 0;
-                    }}
-                    ondropOuter={(e) => {
-                      e.preventDefault();
-                      handleDropSubOuter(e, viewKey);
-                    }}
-                    ondragoverOuter={(e) => {
-                      e.preventDefault();
-                      view.layout.preview.addSibling = e.dataTransfer?.items?.length ?? 1;
-                      e.dataTransfer.dropEffect = "copy";
-                    }}
-                    ondropInner={(e) => {
-                      e.preventDefault();
-                      handleDropSubInner(e, viewKey);
-                    }}
-                    ondragoverInner={(e) => {
-                      e.preventDefault();
-                      view.layout.preview.addChild = e.dataTransfer?.items?.length ?? 1;
-                      e.dataTransfer.dropEffect = "copy";
-                    }}
                   >
                     <div class={["sub-view-container", {"add-drag-border": view.layout.preview.addChild > 0, add: view.layout.preview.addSibling > 0}]}>
                       <!-- {#if view.layers.order.length < 1}
