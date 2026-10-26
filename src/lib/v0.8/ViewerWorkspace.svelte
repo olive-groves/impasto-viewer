@@ -75,6 +75,16 @@
       view.layout.window.title = name;
       view.name = name;
 
+      let metersPerMaxZoomPixel;
+      const version = metadata?.metadataVersion;
+      if (version === "0.4.0") {
+        metersPerMaxZoomPixel = metadata?.spatialResolutionMeters;
+      } else if (version === "0.2.0") {
+        metersPerMaxZoomPixel = metadata?.conversionLengthMeters / metadata?.conversionLengthPixels;
+      }
+      view.maxZoom = metadata?.maxzoom;
+      view.metersPerMaxZoomPixel = metersPerMaxZoomPixel;
+
       multiView.views.add(view);
       rgbView = view;
     }
@@ -93,6 +103,16 @@
       const name = date ? `Height ${date.toLocaleString()}` : "Height";
       view.layout.window.title = name;
       view.name = name;
+
+      let metersPerMaxZoomPixel;
+      const version = metadata?.metadataVersion;
+      if (version === "0.4.0") {
+        metersPerMaxZoomPixel = metadata?.spatialResolutionMeters;
+      } else if (version === "0.2.0") {
+        metersPerMaxZoomPixel = metadata?.conversionLengthMeters / metadata?.conversionLengthPixels;
+      }
+      view.maxZoom = metadata?.maxzoom;
+      view.metersPerMaxZoomPixel = metersPerMaxZoomPixel;
 
       view.drawKeys.instanceKey = syncedTerraDrawModeManager.syncedTerraDraw.addInstance().id;
       multiView.views.add(view);
@@ -123,9 +143,6 @@
       }
     }
 
-    // Get all the synced layers to determine which ones raster, hillshade, color-relief, overlay
-
-    // const hillshadeLayer = layers.find((l) => layers.)
   }
 
   async function deriveSyncedLayersFromMapLibreSource(mapLibreSourceKey: SourceKey) {
@@ -169,7 +186,7 @@
           layerSpecType === "hillshade" ?
           {
             "resampling": "nearest",
-            "hillshade-illumination-direction": 315,
+            "hillshade-illumination-direction": 270,
             "hillshade-exaggeration": 0.5,
             "hillshade-method": 'standard',
           } :
@@ -180,8 +197,10 @@
               'interpolate',
               ['linear'],
               ['elevation'],
-              0, "#440154",
-              metadata?.maximum, "#FDE725"
+              0, "#00000000",
+              0.5, "#440154",
+              1, "#440154",
+              metadata?.maximum, "#FDE725",
             ]
           }
         const initialBackgroundSpec: Background | undefined =

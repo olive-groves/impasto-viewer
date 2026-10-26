@@ -20,6 +20,7 @@
   import { mergeDeep } from '$lib/utils';
   import { ColorRelief } from '$lib/ColorRelief.svelte';
   import Colorbar from '$lib/Colorbar.svelte';
+  import ScaleBar from '$lib/ScaleBar.svelte';
   import DualRangeInput from '$lib/DualRangeInput.svelte';
   import { untrack } from 'svelte';
 
@@ -34,6 +35,8 @@
     pitch = $bindable(),
     roll = $bindable(),
     elevation = $bindable(),
+    maxZoom = undefined,
+    metersPerMaxZoomPixel = undefined,
     onzoomchange,
     onlngchange,
     onlatchange,
@@ -52,6 +55,8 @@
     pitch?: SingleView["camera"]["pitch"];
     roll?: SingleView["camera"]["roll"];
     elevation?: SingleView["camera"]["elevation"];
+    maxZoom?: SingleView["maxZoom"];
+    metersPerMaxZoomPixel?: SingleView["metersPerMaxZoomPixel"];
     onzoomchange?: (zoom: CameraState["zoom"]) => void;
     onlngchange?: (lng: CameraState["lng"]) => void;
     onlatchange?: (lat: CameraState["lat"]) => void;
@@ -220,7 +225,8 @@
   colorRelief.setBreakpoints.high = 1000;
   colorRelief.setBreakpoints.max = 1000;
 
-  let showColorbar = $derived.by(() => {
+  let showColorbar: boolean = $state(true);
+  let colorbarExists = $derived.by(() => {
     return layers.order.some((overrideKey) => {
       const syncedLayerKey = layers.get(overrideKey);
       const syncedLayer = syncedMapLibreLayers.get(syncedLayerKey);
@@ -228,9 +234,7 @@
     })
   })
 
-  let maxZoom: number | undefined;
-  let metersPerMaxZoomPixel: number | undefined = $state();
-  let metersPerPixel = $derived(2**(maxZoom - zoom) * metersPerMaxZoomPixel);
+  let metersPerPixel: number | undefined = $derived((maxZoom != null && metersPerMaxZoomPixel != null) ? 2**(maxZoom - zoom) * metersPerMaxZoomPixel : undefined);
 
   const METERS_PER_KEYENCE_HEIGHT_QUANTIZATION_STEP = 0.000000250000011874363;
 
@@ -403,42 +407,51 @@
         {#if syncedLayer?.spec.type === "hillshade"}
           <label>
             <input type="checkbox" bind:checked={syncedLayer.background.visibility}/>
-            Gray Fill
+            Hillshade Background
           </label>
         {/if}
         <div style:display="flex" style:gap="var(--gap)" >
           <label>
             <input type="checkbox" checked={syncedLayer?.spec.layout?.visibility === "visible"} onchange={(e) => syncedLayer.spec.layout.visibility = e.target.checked ? "visible" : "none"} />
+            {#if sourceResolve?.source.metadata.modality === "rgb"}
+              RGB
+            {:else if sourceResolve?.source.metadata.maskType === "nan-height"}
+              NaN (Height)
+            {/if}
           </label>
-          {#if sourceResolve?.source.metadata.modality === "rgb"}
-            RGB
-          {:else if sourceResolve?.source.metadata.maskType === "nan-height"}
-            NaN (Height)
-          {:else if syncedLayer?.spec.type === "color-relief"}
+          {#if syncedLayer?.spec.type === "color-relief"}
             <details>
               <summary>Pseudocolor</summary>
+              <label>
+                <input type=checkbox bind:checked={showColorbar} />
+                Show colorbar
+              </label>
               <DualRangeInput
-                min={0}
+                min={1}
                 max={sourceResolve?.source.metadata.maximum}
-                low={paint["color-relief-color"].at(3)}
+                low={paint["color-relief-color"].at(7)}
                 onLowChange={(low) => {
-                  const high = untrack(() => paint["color-relief-color"][5])
+                  const high = untrack(() => paint["color-relief-color"][9])
                   paint["color-relief-color"] = [
                     'interpolate',
                     ['linear'],
                     ['elevation'],
+                    0, "#00000000",
+                    0.5, "#440154",
                     low, '#440154',
                     high, "#FDE725"
                   ];
                   colorRelief.setBreakpoints.low = low;
                 }}
-                high={paint["color-relief-color"].at(5)}
+                high={paint["color-relief-color"].at(9)}
                 onHighChange={(high) => {
-                  const low = untrack(() => paint["color-relief-color"][3])
+                  const low = untrack(() => paint["color-relief-color"][7])
                   paint["color-relief-color"] = [
                     'interpolate',
                     ['linear'],
                     ['elevation'],
+                    0, "#00000000",
+                    0.5, "#440154",
                     low, '#440154',
                     high, "#FDE725"
                   ];
@@ -457,11 +470,11 @@
               <div style="display: flex; justify-content: space-between;">
                 <div style="display: flex; justify-content: space-between; flex: 1 1 0; width: 0;">
                   <span>{(colorRelief.setBreakpoints.min * sourceResolve?.source.metadata?.metersPerInteger * 1000).toFixed(0)} mm</span>
-                  <span>{(paint["color-relief-color"][3] * sourceResolve?.source.metadata?.metersPerInteger * 1000).toFixed(2)}</span>
+                  <span>{(paint["color-relief-color"][7] * sourceResolve?.source.metadata?.metersPerInteger * 1000).toFixed(2)}</span>
                 </div>
                 <span> – </span>
                 <div style="display: flex; justify-content: space-between; flex: 1 1 0; width: 0;">
-                  <span>{(paint["color-relief-color"][5] * sourceResolve?.source.metadata?.metersPerInteger * 1000).toFixed(2)}</span>
+                  <span>{(paint["color-relief-color"][9] * sourceResolve?.source.metadata?.metersPerInteger * 1000).toFixed(2)}</span>
                   <span>{(sourceResolve?.source.metadata.maximum * sourceResolve?.source.metadata?.metersPerInteger * 1000).toFixed(0)}</span>
                 </div>
               </div>
@@ -470,7 +483,7 @@
             <details>
               <summary>Hillshade</summary>
               <label>
-                <input type="range" min=0 max=360 step=5 bind:value={paint["hillshade-illumination-direction"]} ondblclick={() => paint["hillshade-illumination-direction"] = 335}>
+                <input type="range" min=0 max=360 step=5 bind:value={paint["hillshade-illumination-direction"]} ondblclick={() => paint["hillshade-illumination-direction"] = 270}>
                 Angle ({paint["hillshade-illumination-direction"].toFixed(0).padStart(3, '0')}°)
               </label>
               <label>
@@ -483,11 +496,8 @@
       {/await}
     {/each}
   </div>
-  {#if showColorbar}
+  {#if colorbarExists && showColorbar}
     <div class="controls-center-left">
-      <!-- <div class="scalebar">
-        <ScaleBar {metersPerPixel} />
-      </div> -->
       <div class="colorbar">
         <Colorbar
           min={colorRelief.setBreakpoints.low * metersPerInteger}
@@ -498,6 +508,13 @@
             ${colorRelief.colormapArray.join(", ")}
           )`}
         />
+      </div>
+    </div>
+  {/if}
+  {#if metersPerInteger != null}
+    <div class="controls-bottom-right">
+      <div class="scalebar">
+        <ScaleBar {metersPerPixel} />
       </div>
     </div>
   {/if}
@@ -536,6 +553,14 @@
         display: flex;
         height: 100%;
       }
+    }
+    .controls-bottom-right {
+      z-index: 1;
+      align-self: end;
+      justify-self: end;
+
+      display: flex;
+      pointer-events: none;
     }
   }
 </style>

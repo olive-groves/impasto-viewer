@@ -126,13 +126,13 @@
     }
     &.draggingInner.enabled {
       > .inner {
-        outline: 1px solid oklch(1 0 0 / 50%);
+        /* outline: 1px solid oklch(1 0 0 / 50%); */
         outline-offset: -1px;
         box-shadow: 0 0 0 1px oklch(0 0 0 / 50%);
       }
     }
     &.draggingOuter.enabled {
-      outline: 1px solid oklch(1 0 0 / 50%);
+      /* outline: 1px solid oklch(1 0 0 / 50%); */
       outline-offset: -1px;
       box-shadow: 0 0 0 1px oklch(0 0 0 / 50%);
     }
