@@ -186,7 +186,7 @@
           layerSpecType === "hillshade" ?
           {
             "resampling": "nearest",
-            "hillshade-illumination-direction": 315,
+            "hillshade-illumination-direction": 270,
             "hillshade-exaggeration": 0.5,
             "hillshade-method": 'standard',
           } :

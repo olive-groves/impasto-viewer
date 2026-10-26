@@ -483,7 +483,7 @@
             <details>
               <summary>Hillshade</summary>
               <label>
-                <input type="range" min=0 max=360 step=5 bind:value={paint["hillshade-illumination-direction"]} ondblclick={() => paint["hillshade-illumination-direction"] = 335}>
+                <input type="range" min=0 max=360 step=5 bind:value={paint["hillshade-illumination-direction"]} ondblclick={() => paint["hillshade-illumination-direction"] = 270}>
                 Angle ({paint["hillshade-illumination-direction"].toFixed(0).padStart(3, '0')}°)
               </label>
               <label>
