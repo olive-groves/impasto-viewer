@@ -225,7 +225,8 @@
   colorRelief.setBreakpoints.high = 1000;
   colorRelief.setBreakpoints.max = 1000;
 
-  let showColorbar = $derived.by(() => {
+  let showColorbar: boolean = $state(true);
+  let colorbarExists = $derived.by(() => {
     return layers.order.some((overrideKey) => {
       const syncedLayerKey = layers.get(overrideKey);
       const syncedLayer = syncedMapLibreLayers.get(syncedLayerKey);
@@ -420,6 +421,10 @@
           {:else if syncedLayer?.spec.type === "color-relief"}
             <details>
               <summary>Pseudocolor</summary>
+              <label>
+                <input type=checkbox bind:checked={showColorbar} />
+                Show colorbar
+              </label>
               <DualRangeInput
                 min={0}
                 max={sourceResolve?.source.metadata.maximum}
@@ -486,7 +491,7 @@
       {/await}
     {/each}
   </div>
-  {#if showColorbar}
+  {#if colorbarExists && showColorbar}
     <div class="controls-center-left">
       <div class="colorbar">
         <Colorbar
