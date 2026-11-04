@@ -326,6 +326,50 @@
 
 <div class=workspace>
   <div class="taskbar unselectable">
+    <div class="viewbar">
+      <div style:display=flex style:overflow-x=auto >
+        <div class="add-view-tab">
+          <!-- TODO: Parameterized accept for supported filetypes (PMTiles et al.) -->
+          <input
+          type="file"
+          multiple
+          accept=".pmtiles"
+          id="add-view-input"
+          onchange={(e) => handleAddViewsOnChange((e.target as HTMLInputElement))}
+          />
+          <button onclick={() => document.getElementById("add-view-input")?.click()}>
+            + Views
+          </button>
+        </div>
+        <select bind:value={multiView.mode.type}>
+          {#each ["Side-by-Side", "Lens", "Blink", "Fade"] as modeType}
+            <option value={modeType.toLowerCase()}>
+              {modeType}
+            </option>
+          {/each}
+        </select>
+        {#each multiView.views.order as viewKey, i (viewKey)}
+          {@const view = multiView.views.map.get(viewKey)}
+          <div class="view-tab">
+            <label class=oneline-input-label>
+              {view.name || `View ${i + 1}`}
+              <input type=checkbox checked={view.layout.window.state !== "minimized"} onchange={(e) => view.layout.window.state = e.target.checked ? "normal" : "minimized"}>
+            </label>
+          </div>
+        {/each}
+      </div>
+      <label class=oneline-input-label style:margin-inline-start=auto>
+        Window Frames
+        <input
+          type=checkbox
+          checked={multiView.layout.window.frame}
+          onchange={(e) => {multiView.layout.window.frame = e.target.checked; multiView.layout.window.titlebar = e.target.checked;}}>
+      </label>
+      <label class=oneline-input-label>
+        Sidebar
+        <input type="checkbox" bind:checked={sidebarExpanded} />
+      </label>
+    </div>
     <div class="palette">
       {#each syncedTerraDrawModeManager.syncedTerraDraw.modeNames.filter((m) => !m.includes("edit")) as modeName (modeName)}
         <label class="oneline-input-label" title={modeName}>
@@ -342,48 +386,6 @@
         </label>
       {/each}
     </div>
-    <div style:display=flex style:overflow-x=auto >
-      <select bind:value={multiView.mode.type}>
-        {#each ["Side-by-Side", "Lens", "Blink", "Fade"] as modeType}
-          <option value={modeType.toLowerCase()}>
-            {modeType}
-          </option>
-        {/each}
-      </select>
-      {#each multiView.views.order as viewKey, i (viewKey)}
-        {@const view = multiView.views.map.get(viewKey)}
-        <div class="view-tab">
-          <label class=oneline-input-label>
-            {view.name || `View ${i + 1}`}
-            <input type=checkbox checked={view.layout.window.state !== "minimized"} onchange={(e) => view.layout.window.state = e.target.checked ? "normal" : "minimized"}>
-          </label>
-        </div>
-      {/each}
-      <div class="add-view-tab">
-      <!-- TODO: Parameterized accept for supported filetypes (PMTiles et al.) -->
-        <input
-        type="file"
-        multiple
-        accept=".pmtiles"
-        id="add-view-input"
-        onchange={(e) => handleAddViewsOnChange((e.target as HTMLInputElement))}
-        />
-        <button onclick={() => document.getElementById("add-view-input")?.click()}>
-          + Views
-        </button>
-      </div>
-    </div>
-    <label class=oneline-input-label style:margin-inline-start=auto>
-      Window Frames
-      <input
-        type=checkbox
-        checked={multiView.layout.window.frame}
-        onchange={(e) => {multiView.layout.window.frame = e.target.checked; multiView.layout.window.titlebar = e.target.checked;}}>
-    </label>
-    <label class=oneline-input-label>
-      Sidebar
-      <input type="checkbox" bind:checked={sidebarExpanded} />
-    </label>
   </div>
   <div class="main stack">
     <MultiViewer
@@ -487,22 +489,27 @@
 
     background: black;
     .taskbar {
+      padding-top: var(--gap);
+      grid-area: task;
+      display: flex;
+      flex-direction: column;
+      background-color: color-mix(in srgb, Canvas, CanvasText 2.5%);
+    }
+    .viewbar {
       grid-area: task;
       display: flex;
       gap: calc(3 * var(--gap));
       flex: 0 0;
-      background-color: color-mix(in srgb, Canvas, CanvasText 10%);
       align-items: baseline;
-      padding: 0 var(--gap);
+      padding-right: var(--gap);
     }
     .palette {
-      align-self: center;
-
       display: flex;
       overflow-x: auto;
       overflow-y: hidden;
       gap: calc(2 * var(--gap));
       padding-left: var(--gap);
+      background-color: color-mix(in srgb, Canvas, CanvasText 10%);
     }
     .main {
       grid-area: main;
@@ -577,15 +584,22 @@
   }
   .view-tab {
     display: flex;
-    border: 1px solid color-mix(in srgb, CanvasText, transparent 85%);
+    background-color: color-mix(in srgb, Canvas, CanvasText 10%);
+    border: 1px solid color-mix(in srgb, CanvasText, transparent 75%);
+    border-bottom-width: 0;
+    border-top-right-radius: var(--gap);
+    &:not(:last-of-type) {
+      border-right-width: 0;
+    }
     padding: 0 var(--gap);
     align-items: center;
   }
   .add-view-tab {
-    border: 1px solid color-mix(in srgb, CanvasText, transparent 85%);
+    border: 1px solid color-mix(in srgb, CanvasText, transparent 50%);
     input[type=file] {
       display: none;
     }
+    margin: 0 var(--gap);
     button {
       padding: 0 calc(2 * var(--gap));
     }
