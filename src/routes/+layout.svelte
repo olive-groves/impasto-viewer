@@ -8,7 +8,7 @@
 
 <nav class="unselectable">
   <h1>Impasto Viewer</h1>
-  <a href="/" target="_blank">Latest (v0.8.0-alpha)</a>
+  <a href="/" target="_blank">Latest (v0.9.0-alpha)</a>
   <a style:margin-inline-start=auto href="/v/0.7" target="_blank">Previous (v0.7.0)</a>
   <a href="/almond-blossom" target="_blank">Harm Belt's <cite>Almond Blossom</cite></a>
 </nav>

@@ -180,7 +180,7 @@
     inlineStyle="height: 100%; width: 100%;"
     renderWorldCopies={false}
     maxPitch={87}
-    aroundCenter={false}
+    dragRotate={{around: 'center', movement: 'linear'}}
     hash={true}
     attributionControl={false}
     anisotropicFilterPitch={180}

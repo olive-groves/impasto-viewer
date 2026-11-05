@@ -2,6 +2,8 @@ import {
   TerraDrawSelectMode,
   TerraDrawMarkerMode,
   TerraDrawPolyLineMode,
+  TerraDrawRectangleMode,
+  TerraDrawFreehandLineStringMode,
   ValidateNotSelfIntersecting,
 } from 'terra-draw';
 import type {
@@ -14,7 +16,15 @@ import type {
 import { isGeometryOutOfBounds, terraDrawMaxBounds } from '$lib/v0.8/geojson-utils';
 
 
-export type Mode = TerraDrawSelectMode | TerraDrawPointMode | TerraDrawPolygonMode | TerraDrawPolyLineMode | TerraDrawMarkerMode | TerraDrawRenderMode;
+export type Mode =
+  | TerraDrawSelectMode
+  | TerraDrawPointMode
+  | TerraDrawPolygonMode
+  | TerraDrawPolyLineMode
+  | TerraDrawMarkerMode
+  | TerraDrawRectangleMode
+  | TerraDrawFreehandLineStringMode
+  | TerraDrawRenderMode;
 export type ModeFactory = () => Mode[];
 
 
@@ -47,20 +57,43 @@ const defaultSelectFlags = {
 const selectFlags = {
   marker: defaultSelectFlags,
   polyline: defaultSelectFlags,
+  rectangle: defaultSelectFlags,
+  "freehand-linestring": defaultSelectFlags,
 }
-const defaultEditFlags = {
-  feature: {
-    draggable: true,
-    coordinates: {
-      deletable: true,
-      midpoints: true,
-      draggable: true
-    }
-  }
-};
 const editFlags = {
-  marker: defaultEditFlags,
-  polyline: defaultEditFlags,
+  marker: {
+    feature: {
+      draggable: true,
+    }
+  },
+  polyline: {
+    feature: {
+      draggable: true,
+      coordinates: {
+        deletable: true,
+        midpoints: true,
+        draggable: true,
+      }
+    }
+  },
+  rectangle: {
+    feature: {
+      draggable: true,
+      coordinates: {
+        resizable: 'opposite',
+      }
+    }
+  },
+  "freehand-linestring": {
+    feature: {
+      draggable: true,
+      coordinates: {
+        deletable: true,
+        midpoints: true,
+        draggable: true,
+      }
+    }
+  },
 }
 const primary = "#fff";
 const shadow = "#000";
@@ -80,9 +113,9 @@ const strokeWidth = 2;
 const selectedStrokeWidth = 3;
 const selectedOutlineWidth = 2;
 
-const pointSize = 2;
-const selectedPointSize = 4;
-const midPointSize = 3;
+const snappingPointSize = 2;
+const editingPointSize = 4;
+const editingMidPointSize = 3;
 const lineWidth = 2;
 const lineOpacity = 0.9;
 const selectedLineWidth = 4;
@@ -311,7 +344,7 @@ const editingSvg = `
       marker-end="url(#marker-arrow)"
     />
   </g>
-  <circle cx="${VIEWBOXSIZE / 2}" cy="${VIEWBOXSIZE / 2}" r="${selectedPointSize * pixelsPerViewBoxPixel}" fill="${primary}" stroke="black" stroke-width="${selectedOutlineWidth * pixelsPerViewBoxPixel}" />
+  <circle cx="${VIEWBOXSIZE / 2}" cy="${VIEWBOXSIZE / 2}" r="${editingPointSize * pixelsPerViewBoxPixel}" fill="${primary}" stroke="black" stroke-width="${selectedOutlineWidth * pixelsPerViewBoxPixel}" />
 </svg>
 `;
 const editingSvgBlob = new Blob([editingSvg], { type: "image/svg+xml" });
@@ -322,7 +355,10 @@ const markerAnchor = "center";
 const markerWidth = svg.match(`(width.*?px)`)?.at(0)?.split(`"`)?.at(1)?.split("px")?.at(0);
 const markerHeight = svg.match(`(height.*?px)`)?.at(0)?.split(`"`)?.at(1)?.split("px")?.at(0);
 
-const validator: Validator = (feature, { updateType }) => {
+const lineStringValidator: Validator = (feature, { updateType }) => {
+  return { valid: outOfBoundsValidator(feature, { updateType }).valid};
+}
+const polygonValidator: Validator = (feature, { updateType }) => {
   return { valid: outOfBoundsValidator(feature, { updateType }).valid && ValidateNotSelfIntersecting(feature).valid };
 }
 
@@ -354,23 +390,29 @@ export const modeFactory: ModeFactory = () => {
     new TerraDrawSelectMode({
       modeName: "edit",
       pointerDistance: defaultPointerDistance,
+      // @ts-ignore: resizeable: 'opposite' triggers this, despite being valid
       flags: editFlags,
       styles: {
         selectedMarkerUrl: editingMarkerUrl,
         selectedMarkerWidth: markerWidth ? parseInt(markerWidth) : undefined,
         selectedMarkerHeight: markerHeight ? parseInt(markerHeight) : undefined,
         selectedMarkerAnchor: markerAnchor,
+
         selectedLineStringColor: primary,
+
         selectedPolygonColor: primary,
         selectedPolygonFillOpacity: fillOpacity,
         selectedPolygonOutlineColor: primary,
         selectedPolygonOutlineWidth: selectedLineWidth,
+
         selectionPointColor: primary,
         selectionPointOutlineColor: secondary,
-        selectionPointWidth: selectedPointSize,
+        selectionPointWidth: editingPointSize,
+        selectionPointOutlineWidth: 1,
+
         midPointColor: primary,
         midPointOutlineColor: secondary,
-        midPointWidth: midPointSize,
+        midPointWidth: editingMidPointSize,
         midPointOutlineWidth: 1,
 
         // selectedPointColor
@@ -416,6 +458,7 @@ export const modeFactory: ModeFactory = () => {
       pointerDistance: defaultPointerDistance,
       keyEvents: defaultKeyEvents,
       allowManualSelection: false,
+      // @ts-ignore: resizeable: 'opposite' triggers this, despite being valid
       flags: editFlags,
       styles: {
         selectedMarkerUrl: editingMarkerUrl,
@@ -429,10 +472,10 @@ export const modeFactory: ModeFactory = () => {
         selectedPolygonOutlineWidth: selectedLineWidth,
         selectionPointColor: primary,
         selectionPointOutlineColor: secondary,
-        selectionPointWidth: selectedPointSize,
+        selectionPointWidth: editingPointSize,
         midPointColor: primary,
         midPointOutlineColor: secondary,
-        midPointWidth: midPointSize,
+        midPointWidth: editingMidPointSize,
         midPointOutlineWidth: 1,
       },
     }),
@@ -448,7 +491,7 @@ export const modeFactory: ModeFactory = () => {
     }),
     new TerraDrawPolyLineMode({
       pointerDistance: defaultPointerDistance,
-      validation: validator,
+      validation: polygonValidator,
       styles: {
         lineStringColor: primary,
         lineStringOpacity: lineOpacity,
@@ -460,24 +503,65 @@ export const modeFactory: ModeFactory = () => {
         polygonOutlineWidth: ({properties}) => properties?._currentlyHovering ? selectedLineWidth : lineWidth,
         closingPointColor: primary,
         // closingPointOpacity: ,
-        closingPointWidth: selectedPointSize,
+        closingPointWidth: editingPointSize,
         closingPointOutlineColor: secondary,
         // closingPointOutlineOpacity: ,
         // closingPointOutlineWidth: ,
         snappingPointColor: primary,
         // snappingPointOpacity: ,
-        snappingPointWidth: pointSize,
+        snappingPointWidth: snappingPointSize,
         snappingPointOutlineColor: secondary,
         // snappingPointOutlineOpacity: ,
         // snappingPointOutlineWidth: ,
-        // @ts-ignore FIXME: Remove after bumping terra-draw
         coordinatePointColor: primary,
         // coordinatePointOpacity: ,
-        coordinatePointWidth: midPointSize,
+        coordinatePointWidth: editingMidPointSize,
         coordinatePointOutlineColor: secondary,
         // coordinatePointOutlineOpacity: ,
         // coordinatePointOutlineWidth: ,
       }
+    }),
+    new TerraDrawRectangleMode({
+      pointerDistance: defaultPointerDistance,
+      validation: polygonValidator,
+      drawInteraction: "click-move-or-drag",
+      styles: {
+        fillColor: primary,
+        fillOpacity: ({properties}) => properties?._currentlyHovering ? fillOpacity : (fillOpacity / 2),
+        outlineColor: primary,
+        outlineOpacity: lineOpacity,
+        outlineWidth: ({properties}) => properties?._currentlyHovering ? selectedLineWidth : lineWidth,
+        coordinatePointWidth: editingMidPointSize,
+        coordinatePointColor: primary,
+        // coordinatePointOpacity: ,
+        // coordinatePointOutlineWidth: ,
+        coordinatePointOutlineColor: secondary,
+        // coordinatePointOutlineOpacity: ,
+      },
+    }),
+    new TerraDrawFreehandLineStringMode({
+      pointerDistance: defaultPointerDistance,
+      validation: lineStringValidator,
+      drawInteraction: "click-move-or-drag",
+      // minDistance: 50,
+      styles: {
+        lineStringWidth: ({properties}) => properties?._currentlyHovering ? selectedLineWidth : lineWidth,
+        lineStringColor: primary,
+        lineStringOpacity: lineOpacity,
+        // lineStringDash: ,
+        // coordinatePointWidth: ,
+        // coordinatePointColor: ,
+        // coordinatePointOpacity: ,
+        // coordinatePointOutlineWidth: ,
+        // coordinatePointOutlineColor: ,
+        // coordinatePointOutlineOpacity: ,
+        closingPointColor: primary,
+        // closingPointOpacity: ,
+        closingPointWidth: editingPointSize,
+        closingPointOutlineColor: secondary,
+        // closingPointOutlineWidth: ,
+        // closingPointOutlineOpacity: ,
+      },
     }),
   ];
 }

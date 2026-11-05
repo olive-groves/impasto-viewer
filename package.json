@@ -1,7 +1,7 @@
 {
 	"name": "impasto-viewer",
 	"private": true,
-	"version": "0.8.0",
+	"version": "0.9.0",
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
@@ -11,32 +11,32 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"postinstall": "patch-package",
-    "update-font": "bash ./scripts/update-material-symbols-subset-font.sh"
+		"update-font": "bash ./scripts/update-material-symbols-subset-font.sh"
 	},
 	"devDependencies": {
-		"maplibre-gl": "^6.11.2",
-    "terra-draw": "^1.38.0",
-    "terra-draw-maplibre-gl-adapter": "^1.5.0",
+		"@alenaksu/json-viewer": "^2.1.2",
 		"@stanko/dual-range-input": "^1.0.1",
+		"@svelte-maplibre-gl/contour": "^2.0.1",
 		"@svelte-maplibre-gl/pmtiles": "^2.0.1",
 		"@svelte-maplibre-gl/terradraw": "^2.1.0",
-		"@svelte-maplibre-gl/contour": "^2.0.1",
 		"@sveltejs/adapter-auto": "^7.0.1",
 		"@sveltejs/adapter-static": "^3.0.10",
 		"@sveltejs/kit": "^2.70.2",
 		"@sveltejs/vite-plugin-svelte": "^7.3.0",
+		"maplibre-gl": "^6.16.0",
 		"maplibre-xy": "^1.1.0",
 		"patch-package": "^8.0.1",
 		"svelte": "^5.56.8",
 		"svelte-check": "^4.7.5",
 		"svelte-maplibre-gl": "^2.2.0",
+		"terra-draw": "^1.38.0",
+		"terra-draw-maplibre-gl-adapter": "^1.5.0",
 		"typescript": "^5.9.3",
-		"vite": "^8.2.1",
-		"@alenaksu/json-viewer": "^2.1.2"
+		"vite": "^8.2.1"
 	},
-  "overrides": {
-    "@svelte-maplibre-gl/terradraw": {
-      "terra-draw-maplibre-gl-adapter": "$terra-draw-maplibre-gl-adapter"
-    }
-  }
+	"overrides": {
+		"@svelte-maplibre-gl/terradraw": {
+			"terra-draw-maplibre-gl-adapter": "$terra-draw-maplibre-gl-adapter"
+		}
+	}
 }
