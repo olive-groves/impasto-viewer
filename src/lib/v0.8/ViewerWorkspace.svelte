@@ -70,17 +70,23 @@
       view.drawKeys.instanceKey = syncedTerraDrawModeManager.syncedTerraDraw.addInstance().id;
 
       const metadata = await sourceManager.mapLibreSources.get(syncedLayer.spec.source)?.source.source.metadata;
-      const date = metadata ? new Date(metadata.instrument.dateTime) : undefined;
+      const version = metadata?.metadataVersion;
+
+      let date;
+      if (version === "0.1.0" || version === "0.2.0" || version === "0.3.0") {
+        date = new Date(metadata.scanDateTime);
+      } else {
+        date = new Date(metadata.instrument.dateTime);
+      }
       const name = date ? `RGB ${date.toLocaleString()}` : "RGB";
       view.layout.window.title = name;
       view.name = name;
 
       let metersPerMaxZoomPixel;
-      const version = metadata?.metadataVersion;
-      if (version === "0.4.0") {
-        metersPerMaxZoomPixel = metadata?.spatialResolutionMeters;
-      } else if (version === "0.2.0") {
+      if (version === "0.1.0" || version === "0.2.0" || version === "0.3.0") {
         metersPerMaxZoomPixel = metadata?.conversionLengthMeters / metadata?.conversionLengthPixels;
+      } else {
+        metersPerMaxZoomPixel = metadata?.spatialResolutionMeters;
       }
       view.maxZoom = metadata?.maxzoom;
       view.metersPerMaxZoomPixel = metersPerMaxZoomPixel;
@@ -99,17 +105,23 @@
       view.layers.add(syncedLayerKey, {key: overrideKey});
 
       const metadata = await sourceManager.mapLibreSources.get(syncedLayer.spec.source)?.source.source.metadata;
-      const date = metadata ? new Date(metadata.instrument.dateTime) : undefined;
+      const version = metadata?.metadataVersion;
+
+      let date;
+      if (version === "0.1.0" || version === "0.2.0" || version === "0.3.0") {
+        date = new Date(metadata.scanDateTime);
+      } else {
+        date = new Date(metadata.instrument.dateTime);
+      }
       const name = date ? `Height ${date.toLocaleString()}` : "Height";
       view.layout.window.title = name;
       view.name = name;
 
       let metersPerMaxZoomPixel;
-      const version = metadata?.metadataVersion;
-      if (version === "0.4.0") {
-        metersPerMaxZoomPixel = metadata?.spatialResolutionMeters;
-      } else if (version === "0.2.0") {
+      if (version === "0.1.0" || version === "0.2.0" || version === "0.3.0") {
         metersPerMaxZoomPixel = metadata?.conversionLengthMeters / metadata?.conversionLengthPixels;
+      } else {
+        metersPerMaxZoomPixel = metadata?.spatialResolutionMeters;
       }
       view.maxZoom = metadata?.maxzoom;
       view.metersPerMaxZoomPixel = metersPerMaxZoomPixel;
@@ -132,17 +144,31 @@
         view.layers.add(syncedLayerKey, {key: overrideKey});
 
         const metadata = await sourceManager.mapLibreSources.get(syncedLayer.spec.source)?.source.source.metadata;
-        const date = metadata ? new Date(metadata.instrument.dateTime) : undefined;
-        const name = date ? `NaN-height ${date.toLocaleString()}` : "NaN-height";
+        const version = metadata?.metadataVersion;
+
+        let date;
+        if (version === "0.1.0" || version === "0.2.0" || version === "0.3.0") {
+          date = new Date(metadata.scanDateTime);
+        } else {
+          date = new Date(metadata.instrument.dateTime);
+        }
+        const name = date ? `NaN ${date.toLocaleString()}` : "NaN";
         view.layout.window.title = name;
         view.name = name;
 
+        let metersPerMaxZoomPixel;
+        if (version === "0.1.0" || version === "0.2.0" || version === "0.3.0") {
+          metersPerMaxZoomPixel = metadata?.conversionLengthMeters / metadata?.conversionLengthPixels;
+        } else {
+          metersPerMaxZoomPixel = metadata?.spatialResolutionMeters;
+        }
+        view.maxZoom = metadata?.maxzoom;
+        view.metersPerMaxZoomPixel = metersPerMaxZoomPixel;
+
         view.drawKeys.instanceKey = syncedTerraDrawModeManager.syncedTerraDraw.addInstance().id;
         multiView.views.add(view);
-        heightView = view;
       }
     }
-
   }
 
   async function deriveSyncedLayersFromMapLibreSource(mapLibreSourceKey: SourceKey) {
