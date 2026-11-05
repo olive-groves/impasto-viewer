@@ -69,7 +69,13 @@
 
 </script>
 
-<div class={["panel", mode]}>
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div
+  class={["panel", mode]}
+  // Prevent pointer-up propagating; for example, when quickly highlighting text with
+  // click and drag, but the mouse release occurs outside the panel.
+  onpointerdown={(e: PointerEvent) => (e.target as HTMLElement)?.setPointerCapture(e.pointerId)}
+>
 
   {#if mode === "selected"}
 
