@@ -6,6 +6,7 @@
   import AutogrowTextArea from './AutogrowTextArea.svelte';
   import ClickToRevealButton from './ClickToRevealButton.svelte';
   import { PROCESSES_AND_TECHNIQUES_AS_EFFECT, TAG_MAP, TAG_CHROMA_HUE } from './feature-utils.svelte';
+  import { getFriendlyLocalDateTime } from './utils-ui';
 
   // TODO: Add tab capture; see Svelte tutorial example
 
@@ -35,38 +36,6 @@
     onEditingCloseClick?: () => void;
   } = $props();
 
-  function p(n: number): "s" | "" {
-    return n !== 1 ? "s" : "";
-  }
-
-  function getFriendlyLocalDateTime(datetime: Date["toISOString"]): string | undefined {
-    if (typeof datetime !== "string")
-      return undefined;
-    const now = new Date();
-    const date = new Date(datetime);
-    let difference_ms = now.getTime() - date.getTime();
-    let n: number;
-    let f: string;
-    if (difference_ms < 3000) {
-      f = `A few seconds ago`
-    } else if (difference_ms < 60000) {  // < 60 sec
-      n = Math.round(difference_ms / 1000);
-      f = `${n} second${p(n)} ago`;
-    } else if (difference_ms < 3600000) {  // < 60 min
-      n = Math.round(difference_ms / 60000);
-      f = `${n} minute${p(n)} ago`;
-    } else if (difference_ms < 86400000) {  // < 24 hr
-      n = Math.round(difference_ms / 3600000);
-      f = `${n} hour${p(n)} ago`;
-    } else if (difference_ms < 604800000) {  // < 7 d
-      n = Math.round(difference_ms / 86400000);
-      f = `${n} day${p(n)} ago (${date.getDay()})`;
-    } else {
-      f = `${date.getDate()} ${date.toLocaleString('default', { month: 'long' })} ${date.getFullYear()} (${date.getDay()}) at ${date.getHours()}:${date.getMinutes()}`
-    }
-    return f
-  }
-
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -80,9 +49,9 @@
   {#if mode === "selected"}
 
     <div class="titlebar">
-      <div class="category">
-        <span class={{unfilled: !properties.category}}>
-          {properties.category || "uncategorized"}
+      <div class="phenomenon">
+        <span class={{unfilled: !properties.phenomenon}}>
+          {properties.phenomenon || "uncategorized"}
         </span>
       </div>
       <div style:margin-inline-start=auto>
@@ -109,36 +78,29 @@
         {/each}
       </div>
 
-      <div class="authorship">
-        <div class="author">
-          {properties?.["created-by"] || "Unknown author"}
+      <div class="comment">
+        <div class="authorship">
+          <div class={["author", {unknown: !properties?.["created-by"]}]}>
+            {properties?.["created-by"] || "Unknown author"}
+          </div>
+          <time datetime={properties?.created} title={properties?.created}>{getFriendlyLocalDateTime(properties?.created)}</time>
         </div>
-        <time datetime={properties?.created} title={properties?.created}>{getFriendlyLocalDateTime(properties?.created)}</time>
+        {#if properties?.comment?.text}
+          <p>{properties?.comment.text}</p>
+        {/if}
       </div>
-      {#if properties?.title}
-        <div class="title">
-          <span class={{unfilled: !properties?.title}}>
-            {properties?.title || `Untitled ${geometry?.type}`}
-          </span>
-        </div>
-      {/if}
-      {#if properties?.comment?.text}
-        <div class="comment">
-          <p>{properties?.comment?.text}</p>
-        </div>
-      {/if}
       {#if properties?.comment?.comments.length}
         <div class="replies">
           {#each properties?.comment?.comments as reply, i (i)}
             {#if reply?.text}
               <div class="reply">
                 <div class="authorship">
-                  <div class="author">
+                  <div class={["author", {unknown: !properties?.["created-by"]}]}>
                     {reply?.["created-by"] ?? "Unknown author"}
                   </div>
                   <time datetime={reply?.created} title={reply?.created}>{getFriendlyLocalDateTime(reply?.created)}</time>
                 </div>
-                <p>{reply?.text}</p>
+                <p>{reply.text}</p>
               </div>
             {/if}
           {/each}
@@ -154,10 +116,10 @@
   {:else if mode === "editing"}
 
     <div class="titlebar">
-      <label class="category">
-        <div class="unselectable">Category</div>
-        <select bind:value={properties.category}>
-          <option value="">Select a category</option>
+      <label class="phenomenon">
+        <div class="unselectable">Phenomenon</div>
+        <select bind:value={properties.phenomenon}>
+          <option value="">Select a phenomenon</option>
           {#each Object.values(PROCESSES_AND_TECHNIQUES_AS_EFFECT) as supervalue (supervalue)}
             {#each Object.entries(supervalue) as [key, value] (key)}
               {#if typeof value === "string"}
@@ -230,26 +192,6 @@
           </ClickToRevealButton>
         </div>
       </div>
-      <div class="title">
-        <ClickToRevealButton initiallyRevealed={properties?.title}>
-          {#snippet button(reveal)}
-            <button onclick={() => reveal()}>
-              + Title
-            </button>
-          {/snippet}
-
-          <label>
-            <div class="unselectable">Title</div>
-            <input type="text"
-              placeholder={`Untitled ${geometry?.type}`}
-              bind:value={properties.title}
-              maxlength="30"
-              onkeyup={(e) => e.key === "Enter" && document.activeElement?.blur()}
-            />
-          </label>
-
-        </ClickToRevealButton>
-      </div>
       <div class="comment">
         <ClickToRevealButton initiallyRevealed={properties?.comment?.text}>
           {#snippet button(reveal)}
@@ -269,7 +211,7 @@
 
         </ClickToRevealButton>
       </div>
-      {#if properties?.comment?.text}
+      {#if properties?.comment?.text || properties?.comment?.comments.length}
         <div class="replies">
           <div class="unselectable field-heading">Replies</div>
           {#each properties?.comment?.comments as reply, i (i)}
@@ -334,13 +276,13 @@
         }
       }
     }
-    .category {
+    .phenomenon {
       span,
       select {
         font-size: 1.35rem;
       }
     }
-    .category::first-letter {
+    .phenomenon::first-letter {
       text-transform: capitalize;
     }
     .unfilled {
@@ -365,13 +307,6 @@
       flex-wrap: wrap;
       padding-top: calc(2 * var(--gap));
       gap: var(--gap);
-    }
-    .title {
-      span,
-      input[type=text] {
-        font-size: 1.2rem;
-      }
-      padding-block-start: 0.5lh;
     }
     .comment,
     .reply {
@@ -430,6 +365,10 @@
         padding-inline-start: var(--gap);
       }
     }
+  }
+  .author.unknown {
+    font-style: italic;
+    color: #ff8000;
   }
 
 </style>

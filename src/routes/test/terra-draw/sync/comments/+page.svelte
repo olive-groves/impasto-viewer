@@ -42,7 +42,7 @@
           "modified-by": authorName,
 
           // annotation text info
-          category: "",
+          phenomenon: "",
           tags: [],
           title: "",
           comment: {
@@ -88,6 +88,14 @@
   let authorName = $state("");
   let filterBy = $state("");
   let sidebarExpanded = $state(true);
+  let visibilities = $state({
+    symbol: true,
+    phenomenon: true,
+    tags: true,
+    "created-by": true,
+    comment: true,
+    edit: true,
+  })
 
 </script>
 
@@ -203,7 +211,7 @@
       <div>
         <label>
           Author name:
-          <input type="text" bind:value={authorName} placeholder="Enter your author name" />
+          <input type="text" bind:value={authorName} placeholder="Enter your author name" required minlength="1" />
         </label>
       </div>
       <div class="filter">
@@ -215,9 +223,26 @@
           </label>
         </form>
       </div>
+      <div class="options unselectable">
+        <button popovertarget="visibilities" style="anchor-name: --visibilities; display: flex; align-items: center; padding-inline-start: var(--gap);">
+          Property Visibilities 
+          <span class="material-symbols-sharp unselectable">
+            more_vert
+          </span>
+        </button>
+        <div id="visibilities" popover>
+          {#each Object.entries(visibilities) as [key, value]}
+            <label>
+              <input type="checkbox" bind:checked={visibilities[key]} />
+              {key}
+            </label>
+          {/each}
+        </div>
+      </div>
       <FeatureList
-        features={filterBy ? syncedTerraDraw.snapshot.filter((f) => (f.properties.category.includes(filterBy) || f.properties.tags.some((t) => t.includes(filterBy)) || f.properties.title.includes(filterBy) || f.properties.comment.text.includes(filterBy))) : syncedTerraDraw.snapshot}
+        features={filterBy ? syncedTerraDraw.snapshot.filter((f) => (f.properties.phenomenon.includes(filterBy) || f.properties.tags.some((t) => t.includes(filterBy)) || f.properties.title.includes(filterBy) || f.properties.comment.text.includes(filterBy))) : syncedTerraDraw.snapshot}
         selectedFeature={syncedTerraDraw.selected}
+        {visibilities}
         onFeatureHoverStart={(id) => syncedTerraDraw.syncedUpdateFeatureProperties(undefined, id, {_currentlyHovering: true})}
         onFeatureHoverEnd={(id) => syncedTerraDraw.syncedUpdateFeatureProperties(undefined, id, {_currentlyHovering: undefined})}
         onFeatureClick={(id) => {
@@ -295,6 +320,9 @@
       outline-color: greenyellow
     }
   }
+  input[type=text]:invalid {
+    border: 2px solid #ff8000;
+  }
 
   .context {
     align-self: start;
@@ -321,6 +349,18 @@
       button {
         padding: 0 var(--gap);
       }
+    }
+  }
+  #visibilities {
+    position-anchor: --visibilities;
+    top: anchor(bottom);
+    left: anchor(left);
+    text-transform: capitalize;
+    &:popover-open {
+      display: flex;
+      flex-direction: column;
+      text-transform: capitalize;
+      padding-inline: var(--gap);
     }
   }
 </style>
