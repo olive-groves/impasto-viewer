@@ -439,7 +439,7 @@
           geometry={feature?.geometry}
           onEditClick={() => syncedTerraDrawModeManager.syncedTerraDraw.selected !== null && syncedTerraDrawModeManager.selectIsolatedEdit(syncedTerraDrawModeManager.syncedTerraDraw.selected)}
           onZoomToFitClick={() => setCamera(feature?.properties?.camera)}
-          onCaptureView={() => feature.properties.camera = $state.snapshot(camera)}
+          onCaptureFit={() => feature.properties.camera = $state.snapshot(camera)}
           onDoneClick={() => syncedTerraDrawModeManager.deselectIsolatedEdit(undefined, true)}
           onSelectedCloseClick={() => syncedTerraDrawModeManager.syncedTerraDraw.syncedDeselectFeature(undefined, null)}
           onEditingCloseClick={() => syncedTerraDrawModeManager.deselectIsolatedEdit(undefined, true)}
@@ -488,7 +488,7 @@
         </div>
         <div class="options unselectable">
           <button popovertarget="visibilities" style="anchor-name: --visibilities; display: flex; align-items: center; padding-inline-start: var(--gap);">
-            Property Visibilities 
+            Property Visibilities
             <span class="material-symbols-sharp unselectable">
               more_vert
             </span>
@@ -606,7 +606,7 @@
       z-index: 1;
       margin: var(--gap);
       width: 100%;
-      max-width: 350px;
+      max-width: 365px;
       overflow-y: auto;
       filter: drop-shadow(5px 5px 10px black);
     }

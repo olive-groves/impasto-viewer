@@ -20,7 +20,7 @@
     onDoneClick,
     onDrawAnotherClick,
     onDeleteClick,
-    onCaptureView,
+    onCaptureFit,
     onEditingCloseClick,
   }: {
     mode: "selected" | "editing";
@@ -32,7 +32,7 @@
     onDoneClick?: () => void;
     onDrawAnotherClick?: () => void;
     onDeleteClick?: () => void;
-    onCaptureView?: () => void;
+    onCaptureFit?: () => void;
     onEditingCloseClick?: () => void;
   } = $props();
 
@@ -142,8 +142,8 @@
         </select>
       </label>
       <div style:margin-inline-start=auto>
-        <button onclick={() => onCaptureView?.()}>
-          Capture view
+        <button onclick={() => onCaptureFit?.()}>
+          Capture fit
         </button>
         <button onclick={() => onEditingCloseClick?.()}>
           ×
