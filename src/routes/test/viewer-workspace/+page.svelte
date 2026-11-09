@@ -4,13 +4,14 @@
   // Viewer Manager?
   import {
     sourceManager,
+    viewManager,
     syncedMapLibreLayers,
-    multiView,
     syncedMapLibreSurfaces,
     syncedTerraDrawModeManager,
   } from "$lib/shared.svelte";
   import {
     setSourceManagerContext,
+    setViewManagerContext,
     setSyncedMapLibreLayersContext,
     setSyncedMapLibreSurfacesContext,
     setSyncedTerraDrawModeManagerContext,
@@ -20,9 +21,10 @@
   sourceManager.sources.forEach((_, key) => sourceManager.delete(key));
   syncedMapLibreLayers.forEach((_, key) => syncedMapLibreLayers.delete(key));
   syncedMapLibreSurfaces.forEach((_, key) => syncedMapLibreSurfaces.delete(key));
-  multiView.views.map.forEach((_, key) => multiView.views.delete(key))
+  viewManager.clear();
   // ———————————————————————————————————————————————————————————————————————————————————
   setSourceManagerContext(sourceManager);
+  setViewManagerContext(viewManager);
   setSyncedMapLibreLayersContext(syncedMapLibreLayers);
   setSyncedMapLibreSurfacesContext(syncedMapLibreSurfaces);
   setSyncedTerraDrawModeManagerContext(syncedTerraDrawModeManager);
@@ -36,6 +38,8 @@
   import { type SourceKey, SourceManager } from "$lib/source-manager.svelte";
   import { onMount } from "svelte";
 
+  const rootMultiView = new MultiView();
+
   const layerSpec: AnyLayerSpec = {  // This isn't state(); the MapLibreSyncedLayer.spec is.
     type: "background",
   }
@@ -46,23 +50,21 @@
   let view;
   let overrideKey;
   view = new SingleView();
-  // overrideKey = syncedLayer.addOverride({spec: {paint: {"background-color": "red"}}});
-  // view.layers.add(syncedLayerKey, {key: overrideKey});
-  view.drawKeys.instanceKey = syncedTerraDrawModeManager.syncedTerraDraw.addInstance().id;
-  multiView.views.add(view);
+  overrideKey = syncedLayer.addOverride({spec: {}});
+  view.layers.set(overrideKey, syncedLayerKey);
+  rootMultiView.views.push(viewManager.add(view));
 
   view = new SingleView();
-  // overrideKey = syncedLayer.addOverride({spec: {paint: {"background-color": "blue"}}});
-  // view.layers.add(syncedLayerKey, {key: overrideKey});
-  view.drawKeys.instanceKey = syncedTerraDrawModeManager.syncedTerraDraw.addInstance().id;
-  multiView.views.add(view);
+  overrideKey = syncedLayer.addOverride({spec: {paint: {"background-color": "blue"}}});
+  view.layers.set(overrideKey, syncedLayerKey);
+  rootMultiView.views.push(viewManager.add(view));
 
   // Minimap uses a requested layer or the first raster layer from the list of views
   // It places the minimap at the bottom left of the multi-view window.
-  // We only turn the minimap for the root multiView on, because otherwise we'd get
+  // We only turn the minimap for the rootMultiView on, because otherwise we'd get
   // multiple minimaps across the views which would overlap and be squeezed within their
   // windows, rather than be an interface element above all the views regardless of orientation
-  multiView.layout.minimap = "visible";
+  rootMultiView.layout.minimap = "visible";
 
   // let A = new MultiView();
   // A.name = "Multi-View A"
@@ -76,7 +78,7 @@
   // view.layers.add(syncedLayerKey, {key: overrideKey});
   // view.drawKeys.instanceKey = syncedTerraDrawModeManager.syncedTerraDraw.addInstance().id;
   // A.views.add(view);
-  // multiView.views.add(A)
+  // rootMultiView.views.add(A)
 
   // let B = new MultiView();
   // B.mode.type = "lens";
@@ -91,7 +93,7 @@
   // B.views.add(view);
   // A.views.add(B)
 
-  const nViewers = multiView.views.order.length;
+  const nViewers = rootMultiView.views.length;
 
   const localPmtilesUrl = new URL('/local/bagunca-2025-10-21T1629/rgb.pmtiles', import.meta.url);
   const localPmtilesDemUrl = new URL('/local/bagunca-2025-10-21T1629/height.pmtiles', import.meta.url);
@@ -127,8 +129,8 @@
       const syncedLayerKey: SyncedMapLibreLayerKey = `synced-maplibre-layer_${crypto.randomUUID()}`;
       syncedMapLibreLayers.set(syncedLayerKey, syncedLayer);  // TODO: Layers manager? .add() auto generates key
       // For each (single)view, add the synced layer with one of the overrides.
-      multiView.views.order.forEach((viewKey, viewIndex) => {
-        const view = multiView.views.map.get(viewKey);
+      rootMultiView.views.forEach((viewKey, viewIndex) => {
+        const view = viewManager.get(viewKey);
         if (view?.type === "single") {
           (view as SingleView).layers.add(syncedLayerKey, {key: overrideKeys.at(viewIndex)})
         }
@@ -172,8 +174,8 @@
         const syncedLayerKey: SyncedMapLibreLayerKey = `synced-maplibre-layer_${crypto.randomUUID()}`;
         syncedMapLibreLayers.set(syncedLayerKey, syncedLayer);  // TODO: Layers manager? .add() auto generates key
         // For each (single)view, add the synced layer with one of the overrides.
-        multiView.views.order.forEach((viewKey, viewIndex) => {
-          const view = multiView.views.map.get(viewKey);
+        rootMultiView.views.forEach((viewKey, viewIndex) => {
+          const view = viewManager.get(viewKey);
           if (view?.type === "single") {
             (view as SingleView).layers.add(syncedLayerKey, {key: overrideKeys.at(viewIndex)})
           }
@@ -209,8 +211,8 @@
     const syncedSurfaceKey: SyncedMapLibreSurfaceKey = `synced-maplibre-surface_${crypto.randomUUID()}`;
     syncedMapLibreSurfaces.set(syncedSurfaceKey, syncedSurface);
     // For each (single)view, set the synced surface with one of the overrides.
-    multiView.views.order.forEach((viewKey, viewIndex) => {
-      const view = multiView.views.map.get(viewKey);
+    rootMultiView.views.forEach((viewKey, viewIndex) => {
+      const view = viewManager.get(viewKey);
       if (view?.type === "single") {
         (view as SingleView).surface.overrideKey = overrideKeys.at(viewIndex);
         (view as SingleView).surface.syncedSurfaceKey = syncedSurfaceKey;
@@ -247,6 +249,6 @@
 
 <div style:display=flex style:height=100% style:width=100% style:overflow=hidden>
   <ViewerWorkspace
-    {multiView}
+    multiView={rootMultiView}
   />
 </div>

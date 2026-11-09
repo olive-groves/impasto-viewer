@@ -5,12 +5,13 @@
   import { scale } from 'svelte/transition';
   import { cubicInOut, cubicOut } from 'svelte/easing';
   import { Tween } from 'svelte/motion';
-  import type { ViewMode, ViewLayout, ViewKey } from './views.svelte';
+  import type { ViewMode, ViewLayout } from './views.svelte';
   import { SingleView, MultiView } from './views.svelte';
 	import type { Attachment } from 'svelte/attachments';
   import DropZone from "$lib/v0.8/DropZone.svelte";
   import {
     getSourceManagerContext,
+    getViewManagerContext,
     getSyncedMapLibreLayersContext,
     getSyncedMapLibreSurfacesContext,
     getSyncedTerraDrawModeManagerContext,
@@ -20,6 +21,7 @@
   import { mergeDeep } from '$lib/utils';
   import { ColorRelief } from '$lib/ColorRelief.svelte';
   const sourceManager = getSourceManagerContext();
+  const viewManager = getViewManagerContext();
   const syncedMapLibreLayers = getSyncedMapLibreLayersContext();
   const syncedMapLibreSurfaces = getSyncedMapLibreSurfacesContext();
   const syncedTerraDrawModeManager = getSyncedTerraDrawModeManagerContext();
@@ -54,7 +56,7 @@
   // I pass its views to this.
   // For each view that is multiview and has just one (multi)view, fold the view:
   //  MULTIVIEW.VIEWS(..., multiview(view), ...) --> MULTIVIEW.VIEWS(..., view, ...).
-  let visibleViewsOrder = $derived(views.order.filter((viewKey) => views.map.get(viewKey)?.layout.window.state !== "minimized"))
+  let visibleViewsOrder = $derived(views.filter((viewKey) => viewManager.get(viewKey)?.layout.window.state !== "minimized"))
 
   // Lens
   // FIXME: Lens (mouse) alignment issue on nested MultiViewers
@@ -208,7 +210,7 @@
       view.maxZoom = metadata?.maxzoom;
       view.metersPerMaxZoomPixel = metersPerMaxZoomPixel;
 
-      views.add(view);
+      views.push(viewManager.add(view));
       rgbView = view;
     }
     const hillshadeLayer = layers.find(({syncedLayer, syncedLayerKey, overrideKey}) => syncedLayer.spec.type === "hillshade")
@@ -244,7 +246,7 @@
       view.metersPerMaxZoomPixel = metersPerMaxZoomPixel;
 
       view.drawKeys.instanceKey = syncedTerraDrawModeManager.syncedTerraDraw.addInstance().id;
-      views.add(view);
+      views.push(viewManager.add(view));
       heightView = view;
     }
 
@@ -283,7 +285,7 @@
         view.metersPerMaxZoomPixel = metersPerMaxZoomPixel;
 
         view.drawKeys.instanceKey = syncedTerraDrawModeManager.syncedTerraDraw.addInstance().id;
-        views.add(view);
+        views.push(viewManager.add(view));
       }
     }
   }
@@ -382,8 +384,8 @@
     // This tunnels down and across an array of (nested) views
     let syncedLayerKey: SyncedMapLibreLayerKey | undefined = undefined;
     let overrideKey: OverrideMapLibreLayerKey | undefined = undefined;
-    for (const viewKey of views.order) {
-      const view = views.get(viewKey);
+    for (const viewKey of views) {
+      const view = viewManager.get(viewKey);
       if (view?.type === "single") {
         for (const oKey of view.layers.order) {
           const slKey = view.layers.get(oKey);
@@ -475,7 +477,7 @@
         >
           {#each visibleViewsOrder as viewKey, i (viewKey)}
             <!-- FIXME: Guard on view type? #if? -->
-            {@const view = views?.map.get(viewKey) as SingleView | MultiView}
+            {@const view = viewManager.get(viewKey)}
             <div
               class=view
               style:clip-path={
@@ -508,8 +510,8 @@
                         </select>
                       </div>
                       <div style:display=flex class=unselectable style:overflow-x=auto>
-                        {#each view.views.order as childViewKey, i (childViewKey)}
-                          {@const childView = view.views.map.get(childViewKey)}
+                        {#each view.views as childViewKey, i (childViewKey)}
+                          {@const childView = viewManager.get(childViewKey)}
                           <div class="view-tab">
                             <label style:display=flex style:gap=2px>
                               {childView.name || `View ${i + 1}`}
@@ -580,7 +582,7 @@
             </div>
           {/each}
           {#if !(layout.preview.addChild > 0)}
-            {#if views.order.length < 1}
+            {#if views.length < 1}
               <div class={["views-notice", "add-drag"]} style:line-height=2em>
                 <p>No views in this multi-view.</p>
                 <p>Drag and drop PMTiles files or click '+ Views' to load RGB, Height, and/or NaN.</p>
