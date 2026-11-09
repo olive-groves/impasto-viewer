@@ -126,7 +126,7 @@ export class MultiView {
   mode: ViewMode = $state({
     type: "side-by-side",
   });
-  views: OrderedSvelteMap<ViewKey, SingleView | MultiView> = new OrderedSvelteMap({ reorderItemInPlace: true, keyGenerator: () => `view_${crypto.randomUUID()}` });
+  views: ViewKey[] = $state([]);
   layout: ViewLayout = $state({
     preview: {
       nest: 0,

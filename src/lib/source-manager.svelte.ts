@@ -62,7 +62,7 @@ export class SourceManager {
   }
 
   /* Given a URL, like a static or remote image, return a source. **/
-  static urlToSource(url: URL): PMTilesTileset | SingleImage {
+  static urlToSource(url: URL): RemotePMTilesTileset | SingleImage {
     const pathname = url.pathname.toLowerCase();
     let source;
     if (pathname.endsWith(".json")) {

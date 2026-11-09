@@ -2,7 +2,11 @@
 <script lang="ts">
   import { PMTilesProtocol } from "@svelte-maplibre-gl/pmtiles";
 
-  import { getSourceManagerContext, getSyncedTerraDrawModeManagerContext } from "$lib/shared-context.svelte";
+  import {
+    getSourceManagerContext,
+    getSyncedTerraDrawModeManagerContext,
+    getViewManagerContext,
+  } from "$lib/shared-context.svelte";
 
   import { SourceManager, type SourceKey } from '$lib/source-manager.svelte';
   import { MapLibreSyncedLayer, type AnyLayerSpec, type OverrideMapLibreLayerKey, type SyncedMapLibreLayerKey } from '$lib/synced-layer.svelte';
@@ -24,8 +28,8 @@
 
   const sourceManager = getSourceManagerContext();
   const syncedTerraDrawModeManager = getSyncedTerraDrawModeManagerContext();
+  const viewManager = getViewManagerContext();
 
-  // TODO: Separate handler for adding views
   function handleAddViewsOnChange(e: HTMLInputElement) {
     const files = e.files;
     if (files && files.length > 0) {
@@ -40,7 +44,6 @@
 
     // Order layers by type
     // Order views by date?
-    // FIXME: asynchronously gather sourcekeys
 
     // Derive the layers from the files
     let layers = (await Promise.all([...files].map(async (file) => {
@@ -91,7 +94,7 @@
       view.maxZoom = metadata?.maxzoom;
       view.metersPerMaxZoomPixel = metersPerMaxZoomPixel;
 
-      multiView.views.add(view);
+      multiView.views.push(viewManager.add(view));
       rgbView = view;
     }
     const hillshadeLayer = layers.find(({syncedLayer, syncedLayerKey, overrideKey}) => syncedLayer.spec.type === "hillshade")
@@ -127,7 +130,7 @@
       view.metersPerMaxZoomPixel = metersPerMaxZoomPixel;
 
       view.drawKeys.instanceKey = syncedTerraDrawModeManager.syncedTerraDraw.addInstance().id;
-      multiView.views.add(view);
+      multiView.views.push(viewManager.add(view));
       heightView = view;
     }
 
@@ -166,7 +169,7 @@
         view.metersPerMaxZoomPixel = metersPerMaxZoomPixel;
 
         view.drawKeys.instanceKey = syncedTerraDrawModeManager.syncedTerraDraw.addInstance().id;
-        multiView.views.add(view);
+        multiView.views.push(viewManager.add(view));
       }
     }
   }
@@ -273,7 +276,7 @@
           "modified-by": authorName,
 
           // annotation text info
-          category: "",
+          phenomenon: "",
           tags: [],
           title: "",
           comment: {
@@ -318,8 +321,16 @@
   })
 
   let authorName = $state("");
-  let filterBy = $state("");
+  let searchBy = $state("");
   let sidebarExpanded = $state(true);
+  let visibilities = $state({
+    symbol: true,
+    phenomenon: true,
+    tags: true,
+    "created-by": true,
+    comment: true,
+    edit: true,
+  })
 
   const MODE_SYMBOLS = new SvelteMap([
     ["select", "arrow_selector_tool"],
@@ -374,8 +385,8 @@
             </option>
           {/each}
         </select>
-        {#each multiView.views.order as viewKey, i (viewKey)}
-          {@const view = multiView.views.map.get(viewKey)}
+        {#each multiView.views as viewKey, i (viewKey)}
+          {@const view = viewManager.get(viewKey)}
           <div class="view-tab">
             <label class=oneline-input-label>
               {view.name || `View ${i + 1}`}
@@ -431,7 +442,7 @@
           geometry={feature?.geometry}
           onEditClick={() => syncedTerraDrawModeManager.syncedTerraDraw.selected !== null && syncedTerraDrawModeManager.selectIsolatedEdit(syncedTerraDrawModeManager.syncedTerraDraw.selected)}
           onZoomToFitClick={() => setCamera(feature?.properties?.camera)}
-          onCaptureView={() => feature.properties.camera = $state.snapshot(camera)}
+          onCaptureFit={() => feature.properties.camera = $state.snapshot(camera)}
           onDoneClick={() => syncedTerraDrawModeManager.deselectIsolatedEdit(undefined, true)}
           onSelectedCloseClick={() => syncedTerraDrawModeManager.syncedTerraDraw.syncedDeselectFeature(undefined, null)}
           onEditingCloseClick={() => syncedTerraDrawModeManager.deselectIsolatedEdit(undefined, true)}
@@ -466,21 +477,38 @@
         <div>
           <label>
             Author name:
-            <input type="text" bind:value={authorName} placeholder="Enter your author name" />
+            <input type="text" bind:value={authorName} placeholder="Enter your author name" required minlength="1" />
           </label>
         </div>
-        <div class="filter">
+        <div class="search">
           <form>
             <label>
-              Filter:
-              <input name="filter" type="text" bind:value={filterBy} placeholder="Text to filter" />
-              <input style:display={!filterBy ? "none" : ""} type="reset" value="Clear"  />
+              Search:
+              <input name="search" type="text" bind:value={searchBy} placeholder="Text to search" />
+              <input style:display={!searchBy ? "none" : ""} type="reset" value="Clear"  />
             </label>
           </form>
         </div>
+        <div class="options unselectable">
+          <button popovertarget="visibilities" style="anchor-name: --visibilities; display: flex; align-items: center; padding-inline-start: var(--gap);">
+            Property Visibilities
+            <span class="material-symbols-sharp unselectable">
+              more_vert
+            </span>
+          </button>
+          <div id="visibilities" popover>
+            {#each Object.keys(visibilities) as key}
+              <label>
+                <input type="checkbox" bind:checked={visibilities[key]} />
+                {key}
+              </label>
+            {/each}
+          </div>
+        </div>
         <FeatureList
-          features={filterBy ? syncedTerraDrawModeManager.syncedTerraDraw.snapshot.filter((f) => (f.properties.category.includes(filterBy) || f.properties.tags.some((t) => t.includes(filterBy)) || f.properties.title.includes(filterBy) || f.properties.comment.text.includes(filterBy))) : syncedTerraDrawModeManager.syncedTerraDraw.snapshot}
+          features={searchBy ? syncedTerraDrawModeManager.syncedTerraDraw.snapshot.filter((f) => (f.properties.phenomenon.includes(searchBy) || f.properties.tags.some((t) => t.includes(searchBy)) || f.properties.title.includes(searchBy) || f.properties.comment.text.includes(searchBy))) : syncedTerraDrawModeManager.syncedTerraDraw.snapshot}
           selectedFeature={syncedTerraDrawModeManager.syncedTerraDraw.selected}
+          {visibilities}
           onFeatureHoverStart={(id) => syncedTerraDrawModeManager.syncedTerraDraw.syncedUpdateFeatureProperties(undefined, id, {_currentlyHovering: true})}
           onFeatureHoverEnd={(id) => syncedTerraDrawModeManager.syncedTerraDraw.syncedUpdateFeatureProperties(undefined, id, {_currentlyHovering: undefined})}
           onFeatureClick={(id) => {
@@ -569,7 +597,7 @@
         gap: var(--gap);
       }
     }
-    .filter {
+    .search {
       input[type=text]:not(:placeholder-shown) {
         border-color: color-mix(in srgb, greenyellow, transparent 25%);
         outline-color: greenyellow
@@ -581,7 +609,7 @@
       z-index: 1;
       margin: var(--gap);
       width: 100%;
-      max-width: 350px;
+      max-width: 365px;
       overflow-y: auto;
       filter: drop-shadow(5px 5px 10px black);
     }
@@ -628,6 +656,20 @@
     margin: 0 var(--gap);
     button {
       padding: 0 calc(2 * var(--gap));
+    }
+  }
+  input[type=text]:invalid {
+    border: 2px solid #ff8000;
+  }
+  #visibilities {
+    position-anchor: --visibilities;
+    top: anchor(bottom);
+    left: anchor(left);
+    &:popover-open {
+      display: flex;
+      flex-direction: column;
+      text-transform: capitalize;
+      padding-inline: var(--gap);
     }
   }
 </style>

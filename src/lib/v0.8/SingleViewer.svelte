@@ -413,9 +413,9 @@
         <div style:display="flex" style:gap="var(--gap)" >
           <label>
             <input type="checkbox" checked={syncedLayer?.spec.layout?.visibility === "visible"} onchange={(e) => syncedLayer.spec.layout.visibility = e.target.checked ? "visible" : "none"} />
-            {#if sourceResolve?.source.metadata.modality === "rgb"}
+            {#if sourceResolve?.source.metadata?.modality === "rgb"}
               RGB
-            {:else if sourceResolve?.source.metadata.maskType === "nan-height"}
+            {:else if sourceResolve?.source.metadata?.maskType === "nan-height"}
               NaN (Height)
             {/if}
           </label>
@@ -428,7 +428,7 @@
               </label>
               <DualRangeInput
                 min={1}
-                max={sourceResolve?.source.metadata.maximum}
+                max={sourceResolve?.source.metadata?.maximum}
                 low={paint["color-relief-color"].at(7)}
                 onLowChange={(low) => {
                   const high = untrack(() => paint["color-relief-color"][9])
@@ -475,7 +475,7 @@
                 <span> – </span>
                 <div style="display: flex; justify-content: space-between; flex: 1 1 0; width: 0;">
                   <span>{(paint["color-relief-color"][9] * sourceResolve?.source.metadata?.metersPerInteger * 1000).toFixed(2)}</span>
-                  <span>{(sourceResolve?.source.metadata.maximum * sourceResolve?.source.metadata?.metersPerInteger * 1000).toFixed(0)}</span>
+                  <span>{(sourceResolve?.source.metadata?.maximum * sourceResolve?.source.metadata?.metersPerInteger * 1000).toFixed(0)}</span>
                 </div>
               </div>
             </details>

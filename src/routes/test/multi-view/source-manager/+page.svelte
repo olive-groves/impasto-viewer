@@ -7,13 +7,14 @@
 
   import {
     sourceManager,
+    viewManager,
     syncedMapLibreLayers,
-    multiView,
     syncedMapLibreSurfaces,
     syncedTerraDrawModeManager,
   } from "$lib/shared.svelte";
   import {
     setSourceManagerContext,
+    setViewManagerContext,
     setSyncedMapLibreLayersContext,
     setSyncedMapLibreSurfacesContext,
     setSyncedTerraDrawModeManagerContext,
@@ -23,9 +24,10 @@
   sourceManager.sources.forEach((_, key) => sourceManager.delete(key));
   syncedMapLibreLayers.forEach((_, key) => syncedMapLibreLayers.delete(key));
   syncedMapLibreSurfaces.forEach((_, key) => syncedMapLibreSurfaces.delete(key));
-  multiView.views.map.forEach((_, key) => multiView.views.delete(key))
+  viewManager.clear();
   // ———————————————————————————————————————————————————————————————————————————————————
   setSourceManagerContext(sourceManager);
+  setViewManagerContext(viewManager);
   setSyncedMapLibreLayersContext(syncedMapLibreLayers);
   setSyncedMapLibreSurfacesContext(syncedMapLibreSurfaces);
   setSyncedTerraDrawModeManagerContext(syncedTerraDrawModeManager);
@@ -45,17 +47,18 @@
   // Proof
   import { onMount } from "svelte";
   import { flip } from "svelte/animate";
-  import { SingleView } from "$lib/v0.8/views.svelte";
+  import { MultiView, SingleView } from "$lib/v0.8/views.svelte";
   import { SourceManager, type SourceKey } from "$lib/source-manager.svelte";
   import MultiViewer from "$lib/v0.8/MultiViewer.svelte";
   import ToolButton from "$lib/v0.8/ToolButton.svelte";
+
+  const rootMultiView = new MultiView();
 
   // >16 in Chromium throws "Too many active WebGL contexts. Oldest context will be lost."
   const nViewers = 3;
   // svelte-ignore state_referenced_locally
   [...Array(nViewers).keys()].map(() => {
-    const view = new SingleView();
-    multiView.views.add(view)
+    rootMultiView.views.push(viewManager.add(new SingleView()));
   })
 
   async function deriveSyncedLayerFromMapLibreSource(
@@ -85,8 +88,8 @@
       const syncedLayerKey: SyncedMapLibreLayerKey = `synced-maplibre-layer_${crypto.randomUUID()}`;
       syncedMapLibreLayers.set(syncedLayerKey, syncedLayer);  // TODO: Layers manager? .add() auto generates key
       // For each (single)view, add the synced layer with one of the overrides.
-      multiView.views.order.forEach((viewKey, viewIndex) => {
-        const view = multiView.views.map.get(viewKey);
+      rootMultiView.views.forEach((viewKey, viewIndex) => {
+        const view = viewManager.get(viewKey);
         if (view?.type === "single") {
           (view as SingleView).layers.add(syncedLayerKey, {key: overrideKeys.at(viewIndex)})
         }
@@ -130,8 +133,8 @@
         const syncedLayerKey: SyncedMapLibreLayerKey = `synced-maplibre-layer_${crypto.randomUUID()}`;
         syncedMapLibreLayers.set(syncedLayerKey, syncedLayer);  // TODO: Layers manager? .add() auto generates key
         // For each (single)view, add the synced layer with one of the overrides.
-        multiView.views.order.forEach((viewKey, viewIndex) => {
-          const view = multiView.views.map.get(viewKey);
+        rootMultiView.views.forEach((viewKey, viewIndex) => {
+          const view = viewManager.get(viewKey);
           if (view?.type === "single") {
             (view as SingleView).layers.add(syncedLayerKey, {key: overrideKeys.at(viewIndex)})
           }
@@ -167,8 +170,8 @@
     const syncedSurfaceKey: SyncedMapLibreSurfaceKey = `synced-maplibre-surface_${crypto.randomUUID()}`;
     syncedMapLibreSurfaces.set(syncedSurfaceKey, syncedSurface);
     // For each (single)view, set the synced surface with one of the overrides.
-    multiView.views.order.forEach((viewKey, viewIndex) => {
-      const view = multiView.views.map.get(viewKey);
+    rootMultiView.views.forEach((viewKey, viewIndex) => {
+      const view = viewManager.get(viewKey);
       if (view?.type === "single") {
         (view as SingleView).surface.overrideKey = overrideKeys.at(viewIndex);
         (view as SingleView).surface.syncedSurfaceKey = syncedSurfaceKey;
@@ -220,7 +223,7 @@
 <div style:display=flex style:overflow=hidden>
 
   <!-- SingleViews have direct access to shared.svelte.ts (sourceManager et al.) -->
-  <MultiViewer {...multiView} bind:camera bind:mode={multiView.mode} bind:layout={multiView.layout} />
+  <MultiViewer {...rootMultiView} bind:camera bind:mode={rootMultiView.mode} bind:layout={rootMultiView.layout} />
 
   <!-- <SideBar
     {sourceManager}
@@ -243,7 +246,8 @@
         <h1>View–Layer Manager Proof</h1>
         <p>List of views and their respective (override) layers</p>
       </div>
-      {#each multiView.views.map as [viewKey, view], viewIndex (viewKey)}
+      {#each rootMultiView.views as viewKey, viewIndex (viewKey)}
+        {@const view = viewManager.get(viewKey)}
         {@const syncedSurface = syncedMapLibreSurfaces.get(view?.surface?.syncedSurfaceKey)}
         {@const overrideSurface = syncedSurface?.overrides.get(view?.surface?.overrideKey)}
         <div style:display=flex style:grid-template-columns=subgrid style:grid-column="-1 / 1" style:border-top="2px solid white" style:margin-top=14px>
