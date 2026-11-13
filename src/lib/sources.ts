@@ -52,7 +52,7 @@ interface VectorType {
   getVectorLayers(): MaybePromise<string[] | undefined>;
 }
 
-interface TilesetSource extends Source {
+export interface TilesetSource extends Source {
   getZxy(z: number, x: number, y: number): MaybePromise<ArrayBuffer | undefined>;
   getBounds(): MaybePromise<[number, number, number, number]>;
   getMaxZoom(): MaybePromise<number>;
@@ -182,6 +182,11 @@ export class PMTilesTileset implements ImageSource, TilesetSource, VectorType {
   async getMetadata() {
     return await this.archive.getMetadata();
   }
+
+  async getTileSize() {
+    const m = await this.metadata;
+    return m.tileSize;
+  };
 
   async isOverlay() {
     const m = await this.metadata;
