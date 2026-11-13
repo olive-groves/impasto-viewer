@@ -79,6 +79,7 @@ type PMTilesMetadata = {
   greenFactor?: number,
   blueFactor?: number,
   baseShift?: number,
+  interval?: number,
 };
 
 
@@ -180,7 +181,7 @@ export class PMTilesTileset implements ImageSource, TilesetSource, VectorType {
   }
 
   async getMetadata() {
-    return await this.archive.getMetadata();
+    return await this.archive.getMetadata() as PMTilesMetadata;
   }
 
   async getTileSize() {
@@ -427,13 +428,14 @@ export class MapLibreSourceSpecAdapter {
         encoding = undefined;
       }
       if (encoding || isForcedRasterDem) {
+        const interval = metadata?.interval ?? 1;
         spec = {
           ...baseSpec,
           type: "raster-dem",
           ...(encoding ? { encoding } : {}),
-          ...(metadata?.redFactor !== undefined ? { redFactor: metadata.redFactor } : {}),
-          ...(metadata?.greenFactor !== undefined ? { greenFactor: metadata.greenFactor } : {}),
-          ...(metadata?.blueFactor !== undefined ? { blueFactor: metadata.blueFactor } : {}),
+          ...(metadata?.redFactor !== undefined ? { redFactor: metadata.redFactor * interval } : {}),
+          ...(metadata?.greenFactor !== undefined ? { greenFactor: metadata.greenFactor * interval } : {}),
+          ...(metadata?.blueFactor !== undefined ? { blueFactor: metadata.blueFactor * interval } : {}),
           ...(metadata?.baseShift !== undefined ? { baseShift: metadata.baseShift } : {}),
         } satisfies MapLibreRasterDemSourceSpec;
       } else {
