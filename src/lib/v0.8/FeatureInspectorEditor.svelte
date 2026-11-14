@@ -7,6 +7,7 @@
   import ClickToRevealButton from './ClickToRevealButton.svelte';
   import { PROCESSES_AND_TECHNIQUES_AS_EFFECT, TAG_MAP, TAG_CHROMA_HUE } from './feature-utils.svelte';
   import { getFriendlyLocalDateTime } from './utils-ui';
+  import type { SourceManager } from '$lib/source-manager.svelte';
 
   // TODO: Add tab capture; see Svelte tutorial example
 
@@ -22,6 +23,7 @@
     onDeleteClick,
     onCaptureFit,
     onEditingCloseClick,
+    sourceManager,
   }: {
     mode: "selected" | "editing";
     properties?: GeoJSONStoreFeatures<GeoJSONStoreGeometries>["properties"];
@@ -34,6 +36,7 @@
     onDeleteClick?: () => void;
     onCaptureFit?: () => void;
     onEditingCloseClick?: () => void;
+    sourceManager?: SourceManager;
   } = $props();
 
 </script>
@@ -65,17 +68,31 @@
     </div>
     <div class="content">
       <div class="metrics" style="display: flex; flex-direction: column;">
-        {#each properties?.metricsBySource as metrics}
-          <div class="source" style="display: flex; flex-direction: column;">
-            <div>
-              {metrics.sourceKey}
-            </div>
-            {#each metrics.samples as sample}
-              <div>
-                [{sample.value.join(", ")}]
+        {#each properties?.metricsBySource as {sourceKey, samples} (sourceKey)}
+          {@const source = sourceManager?.sources.get(sourceKey)}
+          {@const mapLibreSource = sourceManager?.mapLibreSources.get(sourceKey)}
+          {#await Promise.all([mapLibreSource?.source.spec, source?.metadata]) then [mapLibreSourceOriginalSpec, metadata]}
+            {@const spec = {...mapLibreSourceOriginalSpec, ...mapLibreSource?.override}}
+            {#if spec.type === "raster-dem"}
+              <div class="source" style="display: flex; flex-direction: column;">
+                <div>
+                  {(new Date(metadata?.instrument?.dateTime)).toLocaleString()}
+                </div>
+                {#if samples.length === 1}
+                  <div>
+                    {samples[0].value[0] * metadata?.metersPerInteger * 1000} mm (absolute)
+                  </div>
+                {:else if samples.length > 1}
+                  {@const first = samples.at(0).value[0] * metadata?.metersPerInteger * 1000}
+                  {@const last = samples.at(-1).value[0] * metadata?.metersPerInteger * 1000}
+                  <div>
+                    {Math.abs(first - last)} mm (difference end-to-end)
+                  </div>
+                  <!-- {#each samples.map((s) => s.value[0] * metadata?.metersPerInteger * 1000) as mm} -->
+                {/if}
               </div>
-            {/each}
-          </div>
+            {/if}
+          {/await}
         {/each}
       </div>
 

@@ -580,6 +580,7 @@
             const dialog = document.getElementById("dialog-delete-selected");
             dialog?.showModal();
           }}
+          {sourceManager}
         />
         <dialog id="dialog-delete-selected">
           <h2>Delete selected feature?</h2>
