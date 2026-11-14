@@ -64,6 +64,21 @@
       </div>
     </div>
     <div class="content">
+      <div class="metrics" style="display: flex; flex-direction: column;">
+        {#each properties?.metricsBySource as metrics}
+          <div class="source" style="display: flex; flex-direction: column;">
+            <div>
+              {metrics.sourceKey}
+            </div>
+            {#each metrics.samples as sample}
+              <div>
+                [{sample.value.join(", ")}]
+              </div>
+            {/each}
+          </div>
+        {/each}
+      </div>
+
       <div class="tags">
         {#each properties?.tags as tag}
           <div class="tag" style:--chroma={TAG_CHROMA_HUE.get(tag)?.chroma} style:--hue={TAG_CHROMA_HUE.get(tag)?.hue}>

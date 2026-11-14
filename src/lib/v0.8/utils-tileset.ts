@@ -48,7 +48,7 @@ export async function fetchTilesetCoordinatesNeighborhoods(
   // Any reason not to sort in ZXY order?
   // TODO: Sort by existing in cache, not existing in cache
 
-  // For each unique tile index, get the tile, and get the coordinates+neighbors of all the coordinates belonging to that tile
+  // Loop across each unique tile so that we only have to load each tile once.
   for (let [key, {index, elements}] of uniqueTileIndexesAndElements) {
     const data = await zxyTileGetter(index.z, index.x, index.y);
     if (!data) continue;
