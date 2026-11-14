@@ -8,8 +8,8 @@
     getViewManagerContext,
   } from "$lib/shared-context.svelte";
 
-  import { SourceManager, type SourceKey } from '$lib/source-manager.svelte';
-  import { MapLibreSyncedLayer, type AnyLayerSpec, type OverrideMapLibreLayerKey, type SyncedMapLibreLayerKey } from '$lib/synced-layer.svelte';
+  import { SourceManager, type SourceKey } from "$lib/source-manager.svelte";
+  import { MapLibreSyncedLayer, type AnyLayerSpec, type OverrideMapLibreLayerKey, type SyncedMapLibreLayerKey } from "$lib/synced-layer.svelte";
 
   import MultiViewer from "./MultiViewer.svelte";
   import { SingleView, type MultiView } from "./views.svelte";
@@ -217,15 +217,15 @@
             "resampling": "nearest",
             "hillshade-illumination-direction": 270,
             "hillshade-exaggeration": 0.5,
-            "hillshade-method": 'standard',
+            "hillshade-method": "standard",
           } :
           // $state.snapshot(initColorRelief.paint);
           {
-            'resampling': 'nearest',
-            'color-relief-color': [
-              'interpolate',
-              ['linear'],
-              ['elevation'],
+            "resampling": "nearest",
+            "color-relief-color": [
+              "interpolate",
+              ["linear"],
+              ["elevation"],
               0, "#00000000",
               0.5, "#440154",
               1, "#440154",
