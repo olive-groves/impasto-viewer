@@ -4,8 +4,8 @@
   import { onMount } from "svelte";
 
   // const localPmtilesUrl = new URL('/local/bagunca-2025-10-21T1629/rgb.pmtiles', import.meta.url);
-  // const url = new URL('/local/bagunca-2025-10-21T1629/rgb.pmtiles', import.meta.url);
-  const url = new URL('/local/bagunca-2025-10-21T1629/height.pmtiles', import.meta.url);
+  const url = new URL('/local/bagunca-2025-10-21T1629/rgb.pmtiles', import.meta.url);
+  // const url = new URL('/local/bagunca-2025-10-21T1629/height.pmtiles', import.meta.url);
   // const localJpgUrl = new URL('/local/almond-blossom.jpg', import.meta.url);
   // const localPngUrl = new URL('/local/impasto.png', import.meta.url);
   // const initialUrls = [
@@ -247,48 +247,57 @@
   }
   // ///////////////////////////////////////////////////////////////////////////////////
 
+  // I have viewer coordinates.
+  const lngLats: {lng: number, lat: number}[] = [
+    // {lng: -181, lat: 0}, // Should throw
+    // {lng: +181, lat: 0}, // Should throw
+    // {lng: 0, lat: 86}, // Should throw
+    // {lng: 0, lat: -86}, // Should throw
+    {lng: -0.001, lat: +0.001},
+    {lng: 0, lat: 0.1},
+    {lng: 0, lat: 0.2},
+    {lng: 0, lat: 0.3},
+    {lng: 0, lat: 0.4},
+    {lng: 0, lat: 0.5},
+    {lng: 0, lat: 0.6},
+    {lng: 0, lat: 0.7},
+  ];
+
+  // Array of samples images values (by band if not encoded, as decoded value if encoded, null if failed)
+  let samples: (number[] | null)[] = $state([]);
+
   async function test() {
     const source = SourceManager.urlToSource(url);
     if (source.format === "pmtiles") {
       // I want to sample the values of a set of viewer coordinate LngLats.
 
-      // I have viewer coordinates.
-      const lngLats: Array<{lng: number, lat: number}> = [
-        // {lng: -181, lat: 0}, // Should throw
-        // {lng: +181, lat: 0}, // Should throw
-        // {lng: 0, lat: 86}, // Should throw
-        // {lng: 0, lat: -86}, // Should throw
-        {lng: -0.001, lat: +0.001},
-        {lng: 0, lat: 0.1},
-        {lng: 0, lat: 0.2},
-        {lng: 0, lat: 0.3},
-        {lng: 0, lat: 0.4},
-      ];
-
-      // I first transform to tileset coordinates [0-1].
-      const xys: Array<TilesetCoordinate> = lngLats.map((lngLat) => ({
+      // I first transform viewer coordinates to quadtree tileset coordinates (normalized [0-1]).
+      const xys: TilesetCoordinate[] = lngLats.map((lngLat) => ({
         x: (lngLat.lng + 180) / 360,
         y: (1 - Math.log(Math.tan(lngLat.lat * Math.PI / 180) + 1 / Math.cos(lngLat.lat * Math.PI / 180)) / Math.PI) / 2,
       }));
 
-      // Then fetch the neighbors of the coordinates.
+      // Then fetch the pixel neighbors of the coordinates.
       const kernelSize = 2;
       const {coordinates, neighborhoods} = await fetchTilesetCoordinatesNeighborhoods(source, xys, {kernelSize});
 
+      // FIXME: Determine encoding through the MapLibre source.type, as this may be overridden, instead of the PMTiles metadata
       const encoding = (await source.getMetadata()).encoding;
 
-      const samples: (number[] | null)[] = Array.from({length: xys.length});
+      const new_samples: (number[] | null)[] = Array.from({length: xys.length});
       for (let i = 0; i < coordinates.length; i++) {
         const c = coordinates[i];
         const n = neighborhoods[i];
         if (n == null || c == null) continue;
 
-        // Decode if necessary
-        // Set neighbor values to a single-band array of the decoded value, so bilinear interpolation acts on it as B-W
+        // Interpolate decoded values
+        // The trick is to set the neighbor RGBA-banded values to single-band values of their resultant decoded value,
+        // then we use bilinear interpolation on it as if was monochannel (B-W)
+        // FIXME: Determine sampling through the MapLibre source.type, as this may be overridden, instead of the PMTiles metadata
         if (encoding === "custom") {
           const m = await source.getMetadata();
           const baseShift = m.baseShift;
-          // FIXME: interval is in vg pmtiles metadata, but NOT in maplibre source (it's baked-in instead)
+          // WARNING: interval is in vg pmtiles metadata, but NOT in maplibre source (it's baked into the factors instead)
           const interval = m.interval;
           const redFactor = m.redFactor;
           const greenFactor = m.greenFactor;
@@ -304,21 +313,10 @@
         } else if (encoding != null) {
           throw new Error(`Encoding '${encoding}' not supported.`)
         }
-        samples[i] = sample2x2Neighborhood(n, c);
+        new_samples[i] = sample2x2Neighborhood(n, c);
       }
 
-      console.log(samples)
-
-      // // FIXME: Determine sampling through the MapLibre source.type, as this may be overridden, instead of the PMTiles metadata
-      // const encoding = (await source.getMetadata()).encoding;
-      // if (!encoding) {
-      //   const samples = neighborhoods.map((n) => {
-      //     return sampleImageXY()
-      //   });
-      // }
-
-
-  //         values[element] = sampleImageXY(imageData, pixelX, pixelY, resampling);
+      samples = new_samples;
     }
   }
 
@@ -327,3 +325,6 @@
   })
 </script>
 
+{#each lngLats as lngLat, i (i)}
+  <div>{lngLat.lng} {lngLat.lat} - [{samples[i]?.join(", ")}]</div>
+{/each}
