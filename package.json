@@ -29,6 +29,7 @@
 		"svelte": "^5.56.8",
 		"svelte-check": "^4.7.5",
 		"svelte-maplibre-gl": "^2.2.0",
+		"svelteplot": "^0.14.2",
 		"terra-draw": "^1.38.0",
 		"terra-draw-maplibre-gl-adapter": "^1.5.0",
 		"typescript": "^5.9.3",

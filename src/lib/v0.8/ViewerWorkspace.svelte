@@ -24,6 +24,7 @@
   import type { GeoJSONStoreFeatures } from "terra-draw";
   import { fetchTilesetCoordinatesNeighborhoods, type TilesetCoordinate } from "./utils-tileset";
   import { sample2x2Neighborhood } from "./utils-image";
+  import { linspace } from "$lib/Mathematics.svelte";
 
   let {
     multiView,
@@ -385,10 +386,26 @@
       if (!mapLibreSource) continue;
 
       // Transform viewer coordinates to quadtree tileset coordinates (normalized [0-1]).
-      const xys: TilesetCoordinate[] = lngLats.map((lngLat) => ({
+      const xysOriginal: TilesetCoordinate[] = lngLats.map((lngLat) => ({
         x: (lngLat[0] + 180) / 360,
         y: (1 - Math.log(Math.tan(lngLat[1] * Math.PI / 180) + 1 / Math.cos(lngLat[1] * Math.PI / 180)) / Math.PI) / 2,
       }));
+
+      // FIXME: Proof: Should this be more intelligent and sample at approximate path distances? (To avoid sampling when points are very close already)
+      // Sample based on spatial resolution? (No more than 2x nyquist?)
+      // Add n number of additional points between each xy to increase sampling resolution
+      const n = 100;
+      let xys: TilesetCoordinate[];
+      if (xysOriginal.length > 1) {
+        xys = [];
+        for (let i = 1; i < xysOriginal.length; i++) {
+          const xs = linspace(xysOriginal[i-1].x, xysOriginal[i].x, n);
+          const ys = linspace(xysOriginal[i-1].y, xysOriginal[i].y, n);
+          xys.push(...xs.map((x, i) => ({x, y: ys[i]})));
+        }
+      } else {
+        xys = xysOriginal;
+      }
 
       // Then fetch the pixel neighbors of the coordinates.
       const kernelSize = 2;

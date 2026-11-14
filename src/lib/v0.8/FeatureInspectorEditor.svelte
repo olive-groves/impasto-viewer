@@ -8,6 +8,7 @@
   import { PROCESSES_AND_TECHNIQUES_AS_EFFECT, TAG_MAP, TAG_CHROMA_HUE } from './feature-utils.svelte';
   import { getFriendlyLocalDateTime } from './utils-ui';
   import type { SourceManager } from '$lib/source-manager.svelte';
+  import { Plot, Line } from 'svelteplot';
 
   // TODO: Add tab capture; see Svelte tutorial example
 
@@ -83,12 +84,22 @@
                     {samples[0].value[0] * metadata?.metersPerInteger * 1000} mm (absolute)
                   </div>
                 {:else if samples.length > 1}
-                  {@const first = samples.at(0).value[0] * metadata?.metersPerInteger * 1000}
-                  {@const last = samples.at(-1).value[0] * metadata?.metersPerInteger * 1000}
+                  {@const mms = samples.map((s) => s.value[0] * metadata?.metersPerInteger * 1000)}
                   <div>
-                    {Math.abs(first - last)} mm (difference end-to-end)
+                    {Math.abs(mms.at(-1) - mms.at(0))} mm (difference end-to-end)
                   </div>
-                  <!-- {#each samples.map((s) => s.value[0] * metadata?.metersPerInteger * 1000) as mm} -->
+                  <Plot
+                    x={{
+                      label: "Sample points",
+                    }}
+                    y={{
+                      label: "Height [mm]",
+                      grid: true,
+                    }}
+                  >
+                    <Line data={mms.map((mm, i) => ({x: i, y: mm - Math.min(...mms)}))} x="x" y="y"/>
+                    <!-- <Line data={mms.map((mm, i) => ({x: i, y: mm === 0 ? null : mm}))} x="x" y="y"/> -->
+                  </Plot>
                 {/if}
               </div>
             {/if}
@@ -260,6 +271,45 @@
           {/if}
         </div>
       {/if}
+
+      <div class="metrics" style="display: flex; flex-direction: column;">
+        {#each properties?.metricsBySource as {sourceKey, samples} (sourceKey)}
+          {@const source = sourceManager?.sources.get(sourceKey)}
+          {@const mapLibreSource = sourceManager?.mapLibreSources.get(sourceKey)}
+          {#await Promise.all([mapLibreSource?.source.spec, source?.metadata]) then [mapLibreSourceOriginalSpec, metadata]}
+            {@const spec = {...mapLibreSourceOriginalSpec, ...mapLibreSource?.override}}
+            {#if spec.type === "raster-dem"}
+              <div class="source" style="display: flex; flex-direction: column;">
+                <div>
+                  {(new Date(metadata?.instrument?.dateTime)).toLocaleString()}
+                </div>
+                {#if samples.length === 1}
+                  <div>
+                    {samples[0].value[0] * metadata?.metersPerInteger * 1000} mm (absolute)
+                  </div>
+                {:else if samples.length > 1}
+                  {@const mms = samples.map((s) => s.value[0] * metadata?.metersPerInteger * 1000)}
+                  <div>
+                    {Math.abs(mms.at(-1) - mms.at(0))} mm (difference end-to-end)
+                  </div>
+                  <Plot
+                    x={{
+                      label: "Sample points",
+                    }}
+                    y={{
+                      label: "Height [mm]",
+                      grid: true,
+                    }}
+                  >
+                    <Line data={mms.map((mm, i) => ({x: i, y: mm - Math.min(...mms)}))} x="x" y="y"/>
+                    <!-- <Line data={mms.map((mm, i) => ({x: i, y: mm === 0 ? null : mm}))} x="x" y="y"/> -->
+                  </Plot>
+                {/if}
+              </div>
+            {/if}
+          {/await}
+        {/each}
+      </div>
     </div>
     <div class="actionbar">
       <button class="primary" onclick={() => onDoneClick?.()}>
