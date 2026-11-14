@@ -152,7 +152,12 @@ export class PMTilesTileset implements ImageSource, TilesetSource, VectorType {
   // }
   // url: string | undefined = $derived(this.pmtiles?.source ? `pmtiles://${this.pmtiles.source?.getKey()}` : undefined)
 
-  async getZxy(z: number, x: number, y: number) {
+  public getZxy = async (z: number, x: number, y: number) => {
+    // FIXME: Upstream issue where PMTiles.getZxy doesn't fail for negative xy, but does for positive xy outside
+    // So we do that here for parity.
+    if (x < 0 || y < 0) {
+      throw new Error("tile x/y outside zoom level bounds")
+    };
     const resp = await this.archive.getZxy(z, x, y);
     return resp?.data;
   }

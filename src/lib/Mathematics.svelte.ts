@@ -20,7 +20,7 @@ export class ScientificNumber {
     toNumber(): number {
         return this.significand * 10 ** this.exponent;
     }
-    
+
     static fromNumber(num: number): ScientificNumber {
         let significand;
         let exponent;
@@ -79,4 +79,18 @@ function binaryBisector(list: number[], lessThan: indexGetter, greaterThan: inde
 export function pyrange(n: number): number[] {
     // Return an n-length array from 0 to n-1, just like Python's `range(n)`
     return [...Array(n).keys()]
+}
+
+export function linearInterpolate(a: number, b: number, f: number): number {
+  return a + (b - a) * f;
+}
+
+export function bilinearInterpolate(
+  x1y1: number, x2y1: number,
+  x1y2: number, x2y2: number,
+  fx: number, fy: number,
+): number {
+  const y1 = linearInterpolate(x1y1, x2y1, fx);
+  const y2 = linearInterpolate(x1y2, x2y2, fx);
+  return linearInterpolate(y1, y2, fy);
 }
