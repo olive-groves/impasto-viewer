@@ -7,6 +7,8 @@
   import ClickToRevealButton from './ClickToRevealButton.svelte';
   import { PROCESSES_AND_TECHNIQUES_AS_EFFECT, TAG_MAP, TAG_CHROMA_HUE } from './feature-utils.svelte';
   import { getFriendlyLocalDateTime } from './utils-ui';
+  import type { SourceManager } from '$lib/source-manager.svelte';
+  import { Plot, Line } from 'svelteplot';
 
   // TODO: Add tab capture; see Svelte tutorial example
 
@@ -22,6 +24,7 @@
     onDeleteClick,
     onCaptureFit,
     onEditingCloseClick,
+    sourceManager,
   }: {
     mode: "selected" | "editing";
     properties?: GeoJSONStoreFeatures<GeoJSONStoreGeometries>["properties"];
@@ -34,6 +37,7 @@
     onDeleteClick?: () => void;
     onCaptureFit?: () => void;
     onEditingCloseClick?: () => void;
+    sourceManager?: SourceManager;
   } = $props();
 
 </script>
@@ -64,6 +68,45 @@
       </div>
     </div>
     <div class="content">
+      <div class="metrics" style="display: flex; flex-direction: column;">
+        {#each properties?.metricsBySource as {sourceKey, samples} (sourceKey)}
+          {@const source = sourceManager?.sources.get(sourceKey)}
+          {@const mapLibreSource = sourceManager?.mapLibreSources.get(sourceKey)}
+          {#await Promise.all([mapLibreSource?.source.spec, source?.metadata]) then [mapLibreSourceOriginalSpec, metadata]}
+            {@const spec = {...mapLibreSourceOriginalSpec, ...mapLibreSource?.override}}
+            {#if spec.type === "raster-dem"}
+              <div class="source" style="display: flex; flex-direction: column;">
+                <div>
+                  {(new Date(metadata?.instrument?.dateTime)).toLocaleString()}
+                </div>
+                {#if samples.length === 1}
+                  <div>
+                    {samples[0].value[0] * metadata?.metersPerInteger * 1000} mm (absolute)
+                  </div>
+                {:else if samples.length > 1}
+                  {@const mms = samples.map((s) => s.value[0] * metadata?.metersPerInteger * 1000)}
+                  <div>
+                    {Math.abs(mms.at(-1) - mms.at(0))} mm (difference end-to-end)
+                  </div>
+                  <Plot
+                    x={{
+                      label: "Sample points",
+                    }}
+                    y={{
+                      label: "Height [mm]",
+                      grid: true,
+                    }}
+                  >
+                    <Line data={mms.map((mm, i) => ({x: i, y: mm - Math.min(...mms)}))} x="x" y="y"/>
+                    <!-- <Line data={mms.map((mm, i) => ({x: i, y: mm === 0 ? null : mm}))} x="x" y="y"/> -->
+                  </Plot>
+                {/if}
+              </div>
+            {/if}
+          {/await}
+        {/each}
+      </div>
+
       <div class="tags">
         {#each properties?.tags as tag}
           <div class="tag" style:--chroma={TAG_CHROMA_HUE.get(tag)?.chroma} style:--hue={TAG_CHROMA_HUE.get(tag)?.hue}>
@@ -228,6 +271,45 @@
           {/if}
         </div>
       {/if}
+
+      <div class="metrics" style="display: flex; flex-direction: column;">
+        {#each properties?.metricsBySource as {sourceKey, samples} (sourceKey)}
+          {@const source = sourceManager?.sources.get(sourceKey)}
+          {@const mapLibreSource = sourceManager?.mapLibreSources.get(sourceKey)}
+          {#await Promise.all([mapLibreSource?.source.spec, source?.metadata]) then [mapLibreSourceOriginalSpec, metadata]}
+            {@const spec = {...mapLibreSourceOriginalSpec, ...mapLibreSource?.override}}
+            {#if spec.type === "raster-dem"}
+              <div class="source" style="display: flex; flex-direction: column;">
+                <div>
+                  {(new Date(metadata?.instrument?.dateTime)).toLocaleString()}
+                </div>
+                {#if samples.length === 1}
+                  <div>
+                    {samples[0].value[0] * metadata?.metersPerInteger * 1000} mm (absolute)
+                  </div>
+                {:else if samples.length > 1}
+                  {@const mms = samples.map((s) => s.value[0] * metadata?.metersPerInteger * 1000)}
+                  <div>
+                    {Math.abs(mms.at(-1) - mms.at(0))} mm (difference end-to-end)
+                  </div>
+                  <Plot
+                    x={{
+                      label: "Sample points",
+                    }}
+                    y={{
+                      label: "Height [mm]",
+                      grid: true,
+                    }}
+                  >
+                    <Line data={mms.map((mm, i) => ({x: i, y: mm - Math.min(...mms)}))} x="x" y="y"/>
+                    <!-- <Line data={mms.map((mm, i) => ({x: i, y: mm === 0 ? null : mm}))} x="x" y="y"/> -->
+                  </Plot>
+                {/if}
+              </div>
+            {/if}
+          {/await}
+        {/each}
+      </div>
     </div>
     <div class="actionbar">
       <button class="primary" onclick={() => onDoneClick?.()}>

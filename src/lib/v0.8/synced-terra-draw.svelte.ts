@@ -338,6 +338,8 @@ export class SyncedTerraDraw {
     // Sync
     this.syncedDeselectFeature(instanceId, featureId);
 
+    // FIXME: This spams synced feature geometry listeners despite no synced update.
+    // It should only return the draw instance's geometry.
     // This fixes a bug when pressing Escape (cancelling) when dragging a selected feature; onfinish returns undefined id; catch on deselect
     const instance = this.instances.get(instanceId);
     let feature = instance?.getSnapshotFeature(featureId);

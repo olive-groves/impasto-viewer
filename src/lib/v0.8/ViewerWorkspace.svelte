@@ -8,8 +8,8 @@
     getViewManagerContext,
   } from "$lib/shared-context.svelte";
 
-  import { SourceManager, type SourceKey } from '$lib/source-manager.svelte';
-  import { MapLibreSyncedLayer, type AnyLayerSpec, type OverrideMapLibreLayerKey, type SyncedMapLibreLayerKey } from '$lib/synced-layer.svelte';
+  import { SourceManager, type SourceKey } from "$lib/source-manager.svelte";
+  import { MapLibreSyncedLayer, type AnyLayerSpec, type OverrideMapLibreLayerKey, type SyncedMapLibreLayerKey } from "$lib/synced-layer.svelte";
 
   import MultiViewer from "./MultiViewer.svelte";
   import { SingleView, type MultiView } from "./views.svelte";
@@ -19,6 +19,12 @@
   import FeatureList from "./FeatureList.svelte";
   import { syncedMapLibreLayers } from "$lib/shared.svelte";
   import { ColorRelief } from "$lib/ColorRelief.svelte";
+
+  import type { FeatureId } from '$lib/v0.8/geojson-utils';
+  import type { GeoJSONStoreFeatures } from "terra-draw";
+  import { fetchTilesetCoordinatesNeighborhoods, type TilesetCoordinate } from "./utils-tileset";
+  import { sample2x2Neighborhood } from "./utils-image";
+  import { linspace } from "$lib/Mathematics.svelte";
 
   let {
     multiView,
@@ -217,15 +223,15 @@
             "resampling": "nearest",
             "hillshade-illumination-direction": 270,
             "hillshade-exaggeration": 0.5,
-            "hillshade-method": 'standard',
+            "hillshade-method": "standard",
           } :
           // $state.snapshot(initColorRelief.paint);
           {
-            'resampling': 'nearest',
-            'color-relief-color': [
-              'interpolate',
-              ['linear'],
-              ['elevation'],
+            "resampling": "nearest",
+            "color-relief-color": [
+              "interpolate",
+              ["linear"],
+              ["elevation"],
               0, "#00000000",
               0.5, "#440154",
               1, "#440154",
@@ -300,25 +306,165 @@
           ],
           "coordinate-system": "EPSG:3857",
 
+          metricsBySource: [],  // SourceMetrics[]
+
           // callback which appends props to that object?
           // baseline setter that fills:
           // async for elevation? area? -> no, we await that separately in the UI
           // async for references? filters to unique (no duplicates)
-        })
+        });
+        metricsRequestCounter.set(feature.id, -1);
+        const featureSnapshot = syncedTerraDrawModeManager.syncedTerraDraw.snapshot.find((f) => f.id === feature.id);
+        if (featureSnapshot) {
+          fillFeatureMetrics($state.snapshot(featureSnapshot));
+        }
       }
     })
   })
 
+  type Sample = {
+    value: number[] | null,  // [r, g, b, a] or [decoded], depending on source
+    coordinates: [number, number] | null,  // Viewer's CRS coordinates
+  }
+  type SourceMetrics = {
+    sourceKey: SourceKey,
+    samples: Sample[],
+  }
+
   syncedTerraDrawModeManager.syncedTerraDraw.onSyncedUpdateFeatureGeometryListeners.push((id) => {
     syncedTerraDrawModeManager.syncedTerraDraw.updateSnapshotFeatureProperties(id, {
       modified: new Date().toISOString(),
-    })
+    });
+    const featureSnapshot = syncedTerraDrawModeManager.syncedTerraDraw.snapshot.find((f) => f.id === id);
+    if (featureSnapshot) {
+      fillFeatureMetrics($state.snapshot(featureSnapshot));
+    }
   })
 
   $effect(() => {
     const element = document.getElementById(`feature-${syncedTerraDrawModeManager.syncedTerraDraw.selected}`);
     element?.scrollIntoView({block: "center", behavior: "smooth"});
   })
+
+  // For each feature, track the requests (async calls) for metrics, to only set if latest
+  let metricsRequestCounter: Map<FeatureId, number> = new Map();
+
+  // Asynchronously fill the metrics of a feature in the syncedTerraDraw state snapshot
+  // If a later request comes in, then don't apply it. (Abort tech is unnecessary for now.)
+  // TODO: Proof for now that it's possible; clean up and refactor later.
+  async function fillFeatureMetrics(featureSnapshot: GeoJSONStoreFeatures) {
+    if (featureSnapshot.id == null) {
+      return
+    }
+    if (featureSnapshot.geometry.type === "Polygon") {
+      return
+    }
+
+    const count = metricsRequestCounter.get(featureSnapshot.id);
+    let request;
+    if (count != null) {
+      request = count + 1;
+      metricsRequestCounter.set(featureSnapshot.id, request);
+    }
+
+    // FIXME: If/when we go to custom CRS in the future, these LngLats need to become
+    // generic coordinates that get transformed from their CRS to tileset ("world"),
+    // so we need to yoink the viewer instance (un)projection functions.
+    let lngLats;
+    if (featureSnapshot.geometry.type === "Point") {
+      lngLats = [featureSnapshot.geometry.coordinates];
+    } else {
+      lngLats = featureSnapshot.geometry.coordinates;
+    }
+
+    // For each source, yoink the samples, and set them here by source key
+    const metricsBySource: SourceMetrics[] = [];
+    for (let [sourceKey, source] of sourceManager.sources) {
+      if (source?.format !== "pmtiles") continue;
+
+      const mapLibreSource = sourceManager.mapLibreSources.get(sourceKey);
+      if (!mapLibreSource) continue;
+
+      // Transform viewer coordinates to quadtree tileset coordinates (normalized [0-1]).
+      const xysOriginal: TilesetCoordinate[] = lngLats.map((lngLat) => ({
+        x: (lngLat[0] + 180) / 360,
+        y: (1 - Math.log(Math.tan(lngLat[1] * Math.PI / 180) + 1 / Math.cos(lngLat[1] * Math.PI / 180)) / Math.PI) / 2,
+      }));
+
+      // FIXME: Proof: Should this be more intelligent and sample at approximate path distances? (To avoid sampling when points are very close already)
+      // Sample based on spatial resolution? (No more than 2x nyquist?)
+      // Add n number of additional points between each xy to increase sampling resolution
+      const n = 100;
+      let xys: TilesetCoordinate[];
+      if (xysOriginal.length > 1) {
+        xys = [];
+        for (let i = 1; i < xysOriginal.length; i++) {
+          const xs = linspace(xysOriginal[i-1].x, xysOriginal[i].x, n);
+          const ys = linspace(xysOriginal[i-1].y, xysOriginal[i].y, n);
+          xys.push(...xs.map((x, i) => ({x, y: ys[i]})));
+        }
+      } else {
+        xys = xysOriginal;
+      }
+
+      // Then fetch the pixel neighbors of the coordinates.
+      const kernelSize = 2;
+      const maxZoom = await source.getMaxZoom();
+      const tileSize = await source?.getTileSize();
+      const tileGetter = source.getZxy;
+      const {coordinates, neighborhoods} = await fetchTilesetCoordinatesNeighborhoods(tileGetter, maxZoom, tileSize, xys, {kernelSize});
+
+      const sourceSpecOriginal = await mapLibreSource?.source.spec;
+      const sourceSpec = {...sourceSpecOriginal, ...mapLibreSource?.override, id: sourceKey};
+
+      // Determine encoding through the MapLibre source.type, as this may be overridden, instead of the direct source/PMTiles metadata
+      const encoding = sourceSpec?.encoding;
+      const baseShift = sourceSpec?.baseShift;
+      // WARNING: interval is in vg pmtiles metadata, but NOT in maplibre source (it's baked into the factors instead)
+      // const interval = m.interval;
+      const redFactor = sourceSpec?.redFactor;
+      const greenFactor = sourceSpec?.greenFactor;
+      const blueFactor = sourceSpec?.blueFactor;
+
+      const values: (number[] | null)[] = Array.from({length: xys.length});
+      for (let i = 0; i < coordinates.length; i++) {
+        const c = coordinates[i];
+        const n = neighborhoods[i];
+        if (n == null || c == null) continue;
+
+        // Interpolate decoded values
+        // The trick is to set the neighbor RGBA-banded values to single-band values of their resultant decoded value,
+        // then we use bilinear interpolation on it as if was monochannel (B-W)
+        // Determine sampling through the MapLibre source.type, as this may be overridden, instead of the PMTiles metadata
+        if (sourceSpec?.type === "raster-dem" || encoding === "custom") {
+          n.forEach((row, y) => {
+            row.forEach((v, x) => {
+              const rgba = v.value;
+              if (rgba != null) {
+                // n[y][x].value = [baseShift + (rgba[0] * redFactor + rgba[1] * greenFactor + rgba[2] * blueFactor) * interval];
+                n[y][x].value = [baseShift + (rgba[0] * redFactor + rgba[1] * greenFactor + rgba[2] * blueFactor)];
+              }
+            })
+          })
+        } else if (encoding != null) {
+          throw new Error(`Encoding '${encoding}' not supported.`)
+        }
+        values[i] = sample2x2Neighborhood(n, c);
+      }
+
+      const metrics: SourceMetrics = {
+        sourceKey,
+        samples: values.map((value) => ({value, coordinates: null})),
+      };
+      metricsBySource.push(metrics);
+    };
+
+    const featureState = syncedTerraDrawModeManager.syncedTerraDraw.snapshot.find((f) => f.id === featureSnapshot.id);
+    if (request !== metricsRequestCounter.get(featureSnapshot.id) || !featureState?.properties) {
+      return
+    }
+    featureState.properties.metricsBySource = metricsBySource;
+  };
 
   let authorName = $state("");
   let searchBy = $state("");
@@ -451,6 +597,7 @@
             const dialog = document.getElementById("dialog-delete-selected");
             dialog?.showModal();
           }}
+          {sourceManager}
         />
         <dialog id="dialog-delete-selected">
           <h2>Delete selected feature?</h2>

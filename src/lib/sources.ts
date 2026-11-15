@@ -52,7 +52,7 @@ interface VectorType {
   getVectorLayers(): MaybePromise<string[] | undefined>;
 }
 
-interface TilesetSource extends Source {
+export interface TilesetSource extends Source {
   getZxy(z: number, x: number, y: number): MaybePromise<ArrayBuffer | undefined>;
   getBounds(): MaybePromise<[number, number, number, number]>;
   getMaxZoom(): MaybePromise<number>;
@@ -79,6 +79,7 @@ type PMTilesMetadata = {
   greenFactor?: number,
   blueFactor?: number,
   baseShift?: number,
+  interval?: number,
 };
 
 
@@ -151,7 +152,12 @@ export class PMTilesTileset implements ImageSource, TilesetSource, VectorType {
   // }
   // url: string | undefined = $derived(this.pmtiles?.source ? `pmtiles://${this.pmtiles.source?.getKey()}` : undefined)
 
-  async getZxy(z: number, x: number, y: number) {
+  public getZxy = async (z: number, x: number, y: number) => {
+    // FIXME: Upstream issue where PMTiles.getZxy doesn't fail for negative xy, but does for positive xy outside
+    // So we do that here for parity.
+    if (x < 0 || y < 0) {
+      throw new Error("tile x/y outside zoom level bounds")
+    };
     const resp = await this.archive.getZxy(z, x, y);
     return resp?.data;
   }
@@ -180,8 +186,13 @@ export class PMTilesTileset implements ImageSource, TilesetSource, VectorType {
   }
 
   async getMetadata() {
-    return await this.archive.getMetadata();
+    return await this.archive.getMetadata() as PMTilesMetadata;
   }
+
+  async getTileSize() {
+    const m = await this.metadata;
+    return m.tileSize;
+  };
 
   async isOverlay() {
     const m = await this.metadata;
@@ -422,13 +433,14 @@ export class MapLibreSourceSpecAdapter {
         encoding = undefined;
       }
       if (encoding || isForcedRasterDem) {
+        const interval = metadata?.interval ?? 1;
         spec = {
           ...baseSpec,
           type: "raster-dem",
           ...(encoding ? { encoding } : {}),
-          ...(metadata?.redFactor !== undefined ? { redFactor: metadata.redFactor } : {}),
-          ...(metadata?.greenFactor !== undefined ? { greenFactor: metadata.greenFactor } : {}),
-          ...(metadata?.blueFactor !== undefined ? { blueFactor: metadata.blueFactor } : {}),
+          ...(metadata?.redFactor !== undefined ? { redFactor: metadata.redFactor * interval } : {}),
+          ...(metadata?.greenFactor !== undefined ? { greenFactor: metadata.greenFactor * interval } : {}),
+          ...(metadata?.blueFactor !== undefined ? { blueFactor: metadata.blueFactor * interval } : {}),
           ...(metadata?.baseShift !== undefined ? { baseShift: metadata.baseShift } : {}),
         } satisfies MapLibreRasterDemSourceSpec;
       } else {

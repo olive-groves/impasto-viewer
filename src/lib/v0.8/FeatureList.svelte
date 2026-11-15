@@ -6,8 +6,7 @@
   } from 'terra-draw';
   import { TAG_CHROMA_HUE, TAG_MAP } from './feature-utils.svelte';
   import { getFriendlyLocalDateTime } from './utils-ui';
-
-  type FeatureId = string | number;
+  import type { FeatureId } from '$lib/v0.8/geojson-utils';
 
   let {
     features = [],
