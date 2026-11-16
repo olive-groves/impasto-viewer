@@ -57,6 +57,7 @@ const defaultSelectFlags = {
 const selectFlags = {
   marker: defaultSelectFlags,
   polyline: defaultSelectFlags,
+  "highlight-polyline": defaultSelectFlags,
   rectangle: defaultSelectFlags,
   "freehand-linestring": defaultSelectFlags,
 }
@@ -67,6 +68,16 @@ const editFlags = {
     }
   },
   polyline: {
+    feature: {
+      draggable: true,
+      coordinates: {
+        deletable: true,
+        midpoints: true,
+        draggable: true,
+      }
+    }
+  },
+  "highlight-polyline": {
     feature: {
       draggable: true,
       coordinates: {
@@ -99,6 +110,7 @@ const primary = "#fff";
 const shadow = "#000";
 const secondary = "#000";
 const fillOpacity = 0.2;
+const highlight = "#1bfc06";
 
 const strokeOpacity = 0.9;
 const selectedStrokeOpacity = 1.0;
@@ -375,7 +387,12 @@ export const modeFactory: ModeFactory = () => {
         selectedMarkerWidth: markerWidth ? parseInt(markerWidth) : undefined,
         selectedMarkerHeight: markerHeight ? parseInt(markerHeight) : undefined,
         selectedMarkerAnchor: markerAnchor,
-        selectedLineStringColor: primary,
+
+        // selectedLineStringColor: primary,
+        selectedLineStringColor: ({properties}) => properties?.mode === "highlight-polyline" ? highlight : primary,
+        selectedLineStringOpacity: ({properties}) => properties?.mode === "highlight-polyline" ? 0.6 : undefined,
+        selectedLineStringWidth: ({ properties }) => properties?.mode === "highlight-polyline" ? 20 : undefined,
+
         selectedPolygonColor: primary,
         selectedPolygonFillOpacity: fillOpacity,
         selectedPolygonOutlineColor: primary,
@@ -398,7 +415,10 @@ export const modeFactory: ModeFactory = () => {
         selectedMarkerHeight: markerHeight ? parseInt(markerHeight) : undefined,
         selectedMarkerAnchor: markerAnchor,
 
-        selectedLineStringColor: primary,
+        // selectedLineStringColor: primary,
+        selectedLineStringColor: ({properties}) => properties?.mode === "highlight-polyline" ? highlight : primary,
+        selectedLineStringOpacity: ({properties}) => properties?.mode === "highlight-polyline" ? 0.6 : undefined,
+        selectedLineStringWidth: ({ properties }) => properties?.mode === "highlight-polyline" ? 20 : undefined,
 
         selectedPolygonColor: primary,
         selectedPolygonFillOpacity: fillOpacity,
@@ -465,7 +485,12 @@ export const modeFactory: ModeFactory = () => {
         selectedMarkerWidth: markerWidth ? parseInt(markerWidth) : undefined,
         selectedMarkerHeight: markerHeight ? parseInt(markerHeight) : undefined,
         selectedMarkerAnchor: markerAnchor,
-        selectedLineStringColor: primary,
+
+        // selectedLineStringColor: primary,
+        selectedLineStringColor: ({properties}) => properties?.mode === "highlight-polyline" ? highlight : primary,
+        selectedLineStringOpacity: ({properties}) => properties?.mode === "highlight-polyline" ? 0.6 : undefined,
+        selectedLineStringWidth: ({ properties }) => properties?.mode === "highlight-polyline" ? 20 : undefined,
+
         selectedPolygonColor: primary,
         selectedPolygonFillOpacity: fillOpacity,
         selectedPolygonOutlineColor: primary,
@@ -501,6 +526,39 @@ export const modeFactory: ModeFactory = () => {
         polygonOutlineColor: primary,
         polygonOutlineOpacity: lineOpacity,
         polygonOutlineWidth: ({properties}) => properties?._currentlyHovering ? selectedLineWidth : lineWidth,
+        closingPointColor: primary,
+        // closingPointOpacity: ,
+        closingPointWidth: editingPointSize,
+        closingPointOutlineColor: secondary,
+        // closingPointOutlineOpacity: ,
+        // closingPointOutlineWidth: ,
+        snappingPointColor: primary,
+        // snappingPointOpacity: ,
+        snappingPointWidth: snappingPointSize,
+        snappingPointOutlineColor: secondary,
+        // snappingPointOutlineOpacity: ,
+        // snappingPointOutlineWidth: ,
+        coordinatePointColor: primary,
+        // coordinatePointOpacity: ,
+        coordinatePointWidth: editingMidPointSize,
+        coordinatePointOutlineColor: secondary,
+        // coordinatePointOutlineOpacity: ,
+        // coordinatePointOutlineWidth: ,
+      }
+    }),
+    new TerraDrawPolyLineMode({
+      modeName: "highlight-polyline",
+      pointerDistance: defaultPointerDistance,
+      validation: polygonValidator,
+      styles: {
+        lineStringColor: highlight,
+        lineStringOpacity: ({properties}) => properties?._currentlyHovering ? 0.6 : 0.45,
+        lineStringWidth: ({properties}) => properties?._currentlyHovering ? 20 : 16,
+        polygonFillColor: highlight,
+        polygonFillOpacity: ({properties}) => properties?._currentlyHovering ? 0.6 : 0.45,
+        polygonOutlineColor: highlight,
+        polygonOutlineOpacity: 0.9,
+        polygonOutlineWidth: 0,
         closingPointColor: primary,
         // closingPointOpacity: ,
         closingPointWidth: editingPointSize,
