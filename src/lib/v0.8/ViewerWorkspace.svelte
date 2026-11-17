@@ -329,6 +329,7 @@
   type SourceMetrics = {
     sourceKey: SourceKey,
     samples: Sample[],
+    // TODO: Review sample saving approach? samples: (Sample & {sourceKey: SourceKey})[],
   }
 
   syncedTerraDrawModeManager.syncedTerraDraw.onSyncedUpdateFeatureGeometryListeners.push((id) => {
@@ -455,6 +456,7 @@
       const metrics: SourceMetrics = {
         sourceKey,
         samples: values.map((value) => ({value, coordinates: null})),
+        // TODO: Review sample saving approach?: samples: values.map((value) => ({sourceKey, value, coordinates: null})),
       };
       metricsBySource.push(metrics);
     };
