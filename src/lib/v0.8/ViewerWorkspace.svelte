@@ -9,7 +9,7 @@
   } from "$lib/shared-context.svelte";
 
   import { SourceManager, type SourceKey } from "$lib/source-manager.svelte";
-  import { MapLibreSyncedLayer, type AnyLayerSpec, type OverrideMapLibreLayerKey, type SyncedMapLibreLayerKey } from "$lib/synced-layer.svelte";
+  import { MapLibreSyncedLayer, type AnyLayerSpec, type SyncedMapLibreLayerKey } from "$lib/synced-layer.svelte";
 
   import MultiViewer from "./MultiViewer.svelte";
   import { SingleView, type MultiView } from "./views.svelte";
